@@ -90,6 +90,17 @@ go run ./cmd/server
 go run ./cmd/worker
 ```
 
+## Web Console
+
+Start the server with `go run ./cmd/server`, then open `http://localhost:8080/`.
+
+The console provides:
+
+- chat requests through `POST /api/v1/chat`
+- async task creation through `POST /api/v1/tasks`
+- task list loading through `GET /api/v1/tasks?user_id=...`
+- task detail refresh through `GET /api/v1/tasks/:id`
+
 ## API Snapshot
 
 - `POST /api/v1/tasks` creates an async task, persists it, and publishes a `task.execute` message.
