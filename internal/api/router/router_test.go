@@ -5,7 +5,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"testing/fstest"
 
 	"campus-agent/internal/agent/executor"
 	"campus-agent/internal/agent/planner"
@@ -24,6 +26,7 @@ func TestHealthz(t *testing.T) {
 	engine := New(
 		handler.NewChatHandler(chatServiceStub()),
 		handler.NewTaskHandler(taskServiceStub()),
+		nil,
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -40,6 +43,55 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestRootRouteServesIndexPage(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	staticFS := http.FS(fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<html><body>Campus Agent Console</body></html>")},
+	})
+
+	engine := New(
+		handler.NewChatHandler(chatServiceStub()),
+		handler.NewTaskHandler(taskServiceStub()),
+		staticFS,
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status mismatch: got %d want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "Campus Agent Console") {
+		t.Fatalf("missing console title: %s", rec.Body.String())
+	}
+}
+
+func TestStaticAssetRouteServesCSS(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	staticFS := http.FS(fstest.MapFS{
+		"styles.css": &fstest.MapFile{Data: []byte("body { color: #111; }")},
+	})
+
+	engine := New(
+		handler.NewChatHandler(chatServiceStub()),
+		handler.NewTaskHandler(taskServiceStub()),
+		staticFS,
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/static/styles.css", nil)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status mismatch: got %d want %d", rec.Code, http.StatusOK)
+	}
+}
+
 func TestChatRoute(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -47,6 +99,7 @@ func TestChatRoute(t *testing.T) {
 	engine := New(
 		handler.NewChatHandler(chatServiceStub()),
 		handler.NewTaskHandler(taskServiceStub()),
+		nil,
 	)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat", bytes.NewBufferString(`{"user_id":1,"message":"帮我查询明天课程"}`))
@@ -67,6 +120,7 @@ func TestGetTaskRoute(t *testing.T) {
 	engine := New(
 		handler.NewChatHandler(chatServiceStub()),
 		handler.NewTaskHandler(taskServiceStub()),
+		nil,
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/1001", nil)
@@ -86,6 +140,7 @@ func TestGetTaskRouteRejectsInvalidID(t *testing.T) {
 	engine := New(
 		handler.NewChatHandler(chatServiceStub()),
 		handler.NewTaskHandler(taskServiceStub()),
+		nil,
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/not-a-number", nil)
@@ -105,6 +160,7 @@ func TestListTasksRoute(t *testing.T) {
 	engine := New(
 		handler.NewChatHandler(chatServiceStub()),
 		handler.NewTaskHandler(taskServiceStub()),
+		nil,
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks?user_id=42", nil)
@@ -124,6 +180,7 @@ func TestListTasksRouteRejectsInvalidUserID(t *testing.T) {
 	engine := New(
 		handler.NewChatHandler(chatServiceStub()),
 		handler.NewTaskHandler(taskServiceStub()),
+		nil,
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks?user_id=abc", nil)

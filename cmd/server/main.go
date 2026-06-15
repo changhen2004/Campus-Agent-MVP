@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -82,8 +83,9 @@ func main() {
 
 	chatHandler := handler.NewChatHandler(services.Chat)
 	taskHandler := handler.NewTaskHandler(services.Task)
+	staticFS := http.FS(os.DirFS("web/static"))
 
-	mux := router.New(chatHandler, taskHandler)
+	mux := router.New(chatHandler, taskHandler, staticFS)
 
 	log.Printf("campus-agent server listening on %s", cfg.HTTPAddr())
 	if err := mux.Run(cfg.HTTPAddr()); err != nil {

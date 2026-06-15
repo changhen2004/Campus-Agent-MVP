@@ -1,15 +1,36 @@
 package router
 
 import (
+	"io"
 	"net/http"
 
 	"campus-agent/internal/api/handler"
 	"github.com/gin-gonic/gin"
 )
 
-func New(chatHandler *handler.ChatHandler, taskHandler *handler.TaskHandler) *gin.Engine {
+func New(chatHandler *handler.ChatHandler, taskHandler *handler.TaskHandler, staticFS http.FileSystem) *gin.Engine {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
+
+	if staticFS != nil {
+		engine.StaticFS("/static", staticFS)
+		engine.GET("/", func(c *gin.Context) {
+			file, err := staticFS.Open("index.html")
+			if err != nil {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			defer file.Close()
+
+			data, err := io.ReadAll(file)
+			if err != nil {
+				c.Status(http.StatusInternalServerError)
+				return
+			}
+
+			c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+		})
+	}
 
 	engine.GET("/healthz", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
