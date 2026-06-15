@@ -200,8 +200,7 @@ h2 {
 }
 
 .conversation-panel,
-.task-card,
-.task-detail {
+.knowledge-card {
   padding: 22px;
 }
 
@@ -328,105 +327,47 @@ h2 {
   margin-top: 4px;
 }
 
-.task-list {
-  display: grid;
-  gap: 10px;
+.knowledge-hint {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(95, 143, 105, 0.22);
+  border-radius: 8px;
+  background: rgba(95, 143, 105, 0.08);
+}
+
+.knowledge-hint p {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  color: var(--bluegray);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
-.task-list li {
-  border-radius: 8px;
+.about-content {
+  line-height: 1.6;
 }
 
-.task-item {
-  border: 1px solid rgba(111, 55, 45, 0.14);
-  background: rgba(255, 255, 255, 0.42);
+.about-content p {
+  margin-bottom: 10px;
+  font-size: 0.92rem;
 }
 
-.task-select {
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  padding: 12px;
-  border: 0;
-  border-radius: 8px;
-  color: inherit;
-  background: transparent;
-  box-shadow: none;
-  text-align: left;
+.about-content p:last-child {
+  margin-bottom: 0;
 }
 
-.task-select:hover {
-  filter: none;
-  background: rgba(255, 248, 236, 0.5);
+.streaming-content {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.task-item.is-selected {
-  border-color: rgba(169, 79, 50, 0.38);
-  box-shadow: 0 0 0 2px rgba(217, 130, 43, 0.12) inset;
-}
-
-.task-empty {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  padding: 12px;
-  border: 1px dashed rgba(111, 55, 45, 0.16);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.24);
-}
-
-.task-name {
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.task-status {
-  padding: 5px 8px;
-  border-radius: 999px;
-  color: var(--clay);
-  background: rgba(217, 130, 43, 0.16);
-  font-size: 0.75rem;
-  font-weight: 800;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.status-pill.status-success,
 .health-badge.is-online {
   color: #eef8ef;
   background: var(--sage);
 }
 
-.status-pill.status-running {
-  color: #4e3100;
-  background: rgba(204, 138, 46, 0.32);
-}
-
-.status-pill.status-failed,
 .health-badge.is-offline {
   color: #fff6f5;
   background: var(--terracotta);
-}
-
-.status-pill.status-pending {
-  color: #6a4310;
-  background: rgba(239, 216, 176, 0.9);
 }
 
 .form-error {
@@ -445,96 +386,8 @@ h2 {
   color: var(--terracotta);
 }
 
-.detail-message {
-  margin: 0;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 8px 14px;
-  align-items: baseline;
-  margin-bottom: 16px;
-}
-
-.detail-grid span {
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.result-block {
-  display: grid;
-  gap: 8px;
-}
-
-.result-label {
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.result-block pre {
-  margin: 0;
-  padding: 12px;
-  overflow: auto;
-  border: 1px solid rgba(111, 55, 45, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.54);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.answer-block {
-  margin: 12px 0;
-  padding: 12px;
-  border-left: 3px solid var(--sage);
-  border-radius: 8px;
-  background: rgba(95, 143, 105, 0.08);
-}
-
-.result-list {
-  display: grid;
-  gap: 8px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.result-list li {
-  display: grid;
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid rgba(111, 55, 45, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.42);
-}
-
-.result-list p {
-  margin-bottom: 0;
-  color: var(--muted);
-}
-
-.loading-text {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.task-detail {
-  color: var(--muted);
-}
-
-.task-detail h2 {
-  margin-bottom: 10px;
-}
-
-.task-detail p:last-child {
-  margin-bottom: 0;
-  line-height: 1.55;
+.detail-error {
+  color: var(--terracotta);
 }
 
 @media (max-width: 900px) {

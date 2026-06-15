@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Campus Agent Console</title>
+  <title>校园智能助手</title>
   <link rel="stylesheet" href="/static/styles.css">
   <script src="/static/app.js" defer></script>
 </head>
@@ -11,91 +11,75 @@
   <main class="console-shell">
     <header class="hero card">
       <div>
-        <p class="eyebrow">Campus workflow assistant</p>
-        <h1>Campus Agent Console</h1>
-        <p class="hero-copy">Coordinate student requests, chat with the campus agent, and track background tasks from one warm, focused workspace.</p>
+        <p class="eyebrow">校园事务智能体</p>
+        <h1>校园智能助手</h1>
+        <p class="hero-copy">支持流式对话与知识库检索增强生成（RAG）。</p>
       </div>
-      <div class="user-strip" aria-label="Session controls">
-        <label for="user-id-input">User ID</label>
-        <input id="user-id-input" name="user_id" type="number" min="1" value="42" inputmode="numeric">
-        <span id="health-badge" class="health-badge" role="status">Checking health</span>
+      <div class="user-strip" aria-label="会话控制">
+        <label for="session-id-input">会话 ID</label>
+        <input id="session-id-input" name="session_id" type="text" value="default" placeholder="输入会话 ID 以保持上下文">
+        <span id="health-badge" class="health-badge" role="status">检查服务状态</span>
       </div>
     </header>
 
-    <section class="workspace" aria-label="Campus Agent Console workspace">
+    <section class="workspace" aria-label="校园智能助手工作区">
       <section class="conversation-panel card" aria-labelledby="chat-heading">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Conversation</p>
-            <h2 id="chat-heading">Ask the agent</h2>
+            <p class="eyebrow">对话</p>
+            <h2 id="chat-heading">向智能体提问</h2>
           </div>
-          <span class="panel-marker">Live desk</span>
+          <span class="panel-marker">流式 RAG</span>
         </div>
 
         <ol id="message-list" class="message-list" aria-live="polite">
           <li class="message message-agent">
-            <span class="message-meta">Agent</span>
-            <p>Tell me what you need: course lookup, campus service status, or a task you want queued.</p>
+            <span class="message-meta">智能体</span>
+            <p>你好！我是校园智能助手。你可以问我校园相关问题（如实验报告提交、图书馆开放时间等），也可以上传知识库文档扩展我的知识。</p>
           </li>
         </ol>
 
-        <form id="chat-form" class="composer" action="/api/v1/chat" method="post">
-          <label for="chat-input">Message</label>
+        <form id="chat-form" class="composer">
+          <label for="chat-input">问题</label>
           <div class="composer-row">
-            <textarea id="chat-input" name="message" rows="3" placeholder="Ask about tomorrow's schedule..."></textarea>
-            <button id="chat-submit" type="submit">Send</button>
+            <textarea id="chat-input" name="message" rows="3" placeholder="例如：实验报告怎么提交？"></textarea>
+            <button id="chat-submit" type="submit">发送</button>
           </div>
           <p id="chat-error" class="form-error" role="status" aria-live="polite"></p>
         </form>
       </section>
 
-      <aside class="side-panel" aria-label="Tasks">
-        <section class="card task-card" aria-labelledby="task-heading">
+      <aside class="side-panel" aria-label="知识库管理">
+        <section class="card knowledge-card" aria-labelledby="knowledge-heading">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Async task</p>
-              <h2 id="task-heading">Create task</h2>
+              <p class="eyebrow">RAG 知识库</p>
+              <h2 id="knowledge-heading">上传知识库</h2>
             </div>
           </div>
 
-          <form id="task-form" class="stacked-form" action="/api/v1/tasks" method="post">
-            <label for="task-id-input">Task ID</label>
-            <input id="task-id-input" name="id" type="number" min="1" placeholder="1001" inputmode="numeric">
-
-            <label for="task-name-input">Task name</label>
-            <input id="task-name-input" name="task_name" type="text" placeholder="query_course">
-
-            <button id="task-submit" type="submit">Queue task</button>
-            <p id="task-error" class="form-error" role="status" aria-live="polite"></p>
+          <form id="knowledge-form" class="stacked-form" enctype="multipart/form-data">
+            <label for="knowledge-file-input">选择文件</label>
+            <input id="knowledge-file-input" name="file" type="file" accept=".pdf,.doc,.docx,.md,.markdown,.txt">
+            <button id="knowledge-submit" type="submit">上传并加入检索</button>
+            <p id="knowledge-error" class="form-error" role="status" aria-live="polite"></p>
           </form>
+
+          <div class="knowledge-hint">
+            <p>支持 PDF、DOC、DOCX、MD、TXT 格式。上传后会自动解析并加入检索范围。</p>
+          </div>
         </section>
 
-        <section class="card task-card" aria-labelledby="task-list-heading">
+        <section class="card knowledge-card" aria-labelledby="about-heading">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Queue</p>
-              <h2 id="task-list-heading">Task list</h2>
+              <p class="eyebrow">关于</p>
+              <h2 id="about-heading">工作原理</h2>
             </div>
-            <button id="refresh-tasks" class="secondary-button" type="button">Refresh</button>
           </div>
-          <ul id="task-list" class="task-list">
-            <li>
-              <span class="task-name">No tasks loaded</span>
-              <span class="task-status">Idle</span>
-            </li>
-          </ul>
-        </section>
-
-        <section id="task-detail" class="card task-detail" aria-labelledby="task-detail-heading">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Selected task</p>
-              <h2 id="task-detail-heading">Task detail</h2>
-            </div>
-            <button id="refresh-task-detail" class="secondary-button" type="button">Refresh</button>
-          </div>
-          <div id="task-detail-content">
-            <p>Select a task to inspect status, result, and execution details.</p>
+          <div class="about-content">
+            <p><strong>知识相关问题</strong>：自动从知识库检索相关内容，为 LLM 提供领域知识支撑后生成回答。</p>
+            <p><strong>一般问题</strong>：直接由 LLM 流式输出回答。</p>
           </div>
         </section>
       </aside>

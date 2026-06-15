@@ -1,122 +1,279 @@
-# Campus Agent MVP
+# Campus Agent
 
-Campus Agent MVP 是一个面向校园场景的智能事务 Agent 工程骨架，目标是在较小范围内完整展示以下能力：
+智能校园助手 — 融合 RAG 检索增强生成与流式对话的校园事务问答系统。
 
-- 意图识别
-- 任务规划
-- 工具调用
-- 检索增强生成（RAG）
-- 异步任务工作流
-- 基础工程化部署
+## 项目简介
 
-当前仓库重点是模块边界、目录结构和后续扩展点，不是完整业务系统。
+Campus Agent 是一个轻量级智能问答系统，核心能力：
 
-## 推荐架构
+- **意图自动判断** — 自动识别用户问题是否与本地知识库相关
+- **直接对话** — 非知识库相关的通用问题，直接由 LLM 流式输出回答
+- **RAG 检索增强** — 与知识库相关的问题，通过向量检索内部文档，将领域知识融入 Prompt，为 LLM 提供知识支撑
+- **流式响应** — 基于 SSE 的流式输出，实时展示回答内容
+- **知识库管理** — 支持 Markdown、PDF、DOC、DOCX、TXT 等格式文档的上传与自动解析
 
-```text
-api -> app -> agent -> tool/rag/platform
-                -> domain
-                -> repository/mq
+## 技术架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       Campus Agent                          │
+├─────────────────────────────────────────────────────────────┤
+│  API Layer (Gin)                                            │
+│  ├── POST /chat        - 普通对话（JSON 响应）                │
+│  ├── POST /chat/stream - 流式对话（SSE）                     │
+│  └── POST /upload      - 知识库文件上传                      │
+├─────────────────────────────────────────────────────────────┤
+│  Service Layer                                              │
+│  ├── Chat Service      - 意图路由 + Prompt 构建 + 会话记忆    │
+│  └── Knowledge Service - 文档解析 + 索引管理                  │
+├─────────────────────────────────────────────────────────────┤
+│  AI Layer                                                   │
+│  ├── LLM Client        - OpenAI 兼容 API（同步 + 流式）       │
+│  ├── Retriever         - 检索路由（Qdrant + 本地回退）        │
+│  └── Embedder          - Embedding 服务                     │
+├─────────────────────────────────────────────────────────────┤
+│  Storage                                                    │
+│  ├── Qdrant            - 向量数据库（语义检索）               │
+│  └── Local Store       - 本地关键词检索（降级方案）            │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 目录结构
+### 请求流程
 
-```text
-campus-agent/
-├── cmd/server
-├── cmd/worker
-├── configs
-├── internal/api
-├── internal/app
-├── internal/agent
-├── internal/domain
-├── internal/tool
-├── internal/repository
-├── internal/mq
-├── internal/platform/ai
-├── internal/rag
-├── pkg
-├── deployments
-├── docs
-└── scripts
 ```
-
-## 当前骨架已包含
-
-- 基于 Gin 的 HTTP API
-- 聊天与任务应用服务
-- 关键词规划器与工具分发执行器
-- 领域实体与仓储接口
-- RabbitMQ 消息抽象
-- RAG 与 AI 扩展点
-- 本地中间件 Docker Compose 配置
-- Gin 路由与处理器层
-- 基于 Gorm 的任务与聊天仓储
-- RabbitMQ Producer 适配层
-- RabbitMQ 任务执行 Worker 启动链路
-- RabbitMQ Exchange、Queue 与 Binding 声明
-
-## 当前实现状态
-
-HTTP 层已经切换到 Gin。`internal/repository/mysql` 下的任务与聊天仓储已经提供 Gorm 实现，并配有基于 SQLite 内存库的单元测试，因此无需启动 MySQL 也可以验证仓储行为。`cmd/server` 已经把任务创建链路接到 MySQL 和真实 RabbitMQ Producer，创建异步任务时会先落库，再发布 `task.execute` 消息。
-
-任务执行链路已经包含 `internal/app/task` 下的应用层处理器、`internal/mq/consumer` 下的 RabbitMQ Consumer 适配层，以及独立的 `cmd/worker` 入口。Server 和 Worker 都会通过 `internal/mq/topology` 声明 RabbitMQ 拓扑。Worker 会将任务状态更新为 `running`，调用执行器处理，再把结果写回为 `success` 或 `failed`。
-
-`cmd/server` 和 `cmd/worker` 都已经增加 MySQL、RabbitMQ 启动重试逻辑，因此在 Docker Compose 首次拉起时，对中间件就绪时序更宽容。Compose 也为 MySQL、Redis、RabbitMQ 配置了健康检查。
-
-执行器已经把 MVP 任务分发到工具接口：`query_course` 调用 `CourseTool`，`create_reminder` 调用 `ReminderTool`，`search_knowledge` 调用 `KnowledgeTool`。当前工具实现仍然以本地实现和轻量 stub 为主，用于保留真实 Agent 到 Tool 的边界，同时保证项目可运行。
-
-`ReminderTool` 已经接入 MySQL 持久化。`CourseTool` 支持注入静态课程数据用于本地演示，`KnowledgeTool` 支持基于本地 Markdown 文档的中文检索。
-
-本地知识文档会在 Server 和 Worker 启动时从 `docs/knowledge/*.md` 加载。文档第一个 `#` 标题会作为知识标题，其余 Markdown 文本会作为可检索内容。
+用户问题 → Retriever 向量检索 → 相似度 > 阈值?
+  ├── 是 → 构建 RAG 增强 Prompt → LLM 流式输出
+  └── 否 → 系统 Prompt → LLM 流式输出
+```
 
 ## 快速开始
 
-### 运行测试
+### 前置依赖
+
+- Go 1.25+
+- [Qdrant](https://qdrant.tech/) (可选，向量数据库)
+- OpenAI 兼容 API (LLM 服务)
+
+### 安装步骤
+
+1. **配置**
 
 ```bash
-go test ./...
+cp config/config_template.yaml config/config.yaml
 ```
 
-### 启动服务端
+编辑 `config/config.yaml`，填入 LLM API Key 和模型配置。
+
+2. **（可选）启动 Qdrant**
 
 ```bash
-go run ./cmd/server
+docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 ```
 
-### 启动 Worker
+如果不启动 Qdrant，系统会自动回退到本地关键词检索。
+
+3. **运行服务**
 
 ```bash
-go run ./cmd/worker
+go mod tidy
+go run ./cmd
 ```
 
-## Web 控制台
+服务将在 `http://localhost:8080` 启动。
 
-执行 `go run ./cmd/server` 后，打开 `http://localhost:8080/` 即可访问控制台。
+4. **访问前端**
 
-控制台支持：
+打开浏览器访问 `http://localhost:8080/` 进入控制台。
 
-- 通过 `POST /api/v1/chat` 发起聊天请求
-- 通过 `POST /api/v1/tasks` 创建异步任务
-- 通过 `GET /api/v1/tasks?user_id=...` 加载任务列表
-- 通过 `GET /api/v1/tasks/:id` 刷新任务详情
+## 配置说明
 
-## API 快照
+### config/config.yaml
 
-- `POST /api/v1/tasks`：创建异步任务、持久化任务记录并发布 `task.execute` 消息
-- `GET /api/v1/tasks?user_id=42`：查询指定用户的任务列表
-- `GET /api/v1/tasks/:id`：查询任务当前状态和执行结果
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 8080
 
-### 使用 Docker Compose 启动中间件
+llm:
+  endpoint: "https://api.deepseek.com/v1"
+  api_key: "your-api-key"
+  model: "deepseek-chat"
 
-```bash
-docker compose -f deployments/docker-compose.yml up --build
+embedding:
+  provider: "openai"
+  endpoint: "https://api.deepseek.com/v1"
+  api_key: "your-api-key"
+  model: "text-embedding-3-small"
+  dimension: 1536
+
+qdrant:
+  host: "127.0.0.1"
+  port: 6334
+  collection: "campus_knowledge"
+
+rag:
+  similarity_threshold: 0.6
 ```
 
-## 后续建议
+| 配置项 | 说明 |
+|--------|------|
+| `server.host/port` | HTTP 服务地址 |
+| `llm.*` | LLM API 配置 (兼容 OpenAI 格式) |
+| `embedding.*` | Embedding 服务配置 |
+| `qdrant.*` | Qdrant 向量数据库配置 |
+| `rag.similarity_threshold` | 知识库相关性阈值 (0-1) |
 
-1. 为用户与提醒补充更完整的 Gorm 仓储实现。
-2. 增加基于 Docker Compose 中间件的集成测试。
-3. 将静态课程数据替换为真实课程数据源，并把本地知识检索升级为向量检索。
-4. 接入 Eino 与 OpenAI Compatible LLM 后端。
-5. 为 RAG 补全向量库与 Embedding 实现。
+## API 文档
+
+### 健康检查
+
+```http
+GET /ping
+```
+
+**响应:**
+```json
+{"message": "pong"}
+```
+
+### 普通对话
+
+```http
+POST /chat
+Content-Type: application/json
+
+{
+  "question": "实验报告怎么提交？",
+  "id": "session-001"
+}
+```
+
+**响应:**
+```json
+{
+  "success": true,
+  "data": {
+    "question": "实验报告怎么提交？",
+    "answer": "根据知识库，实验报告需要通过教务平台提交..."
+  }
+}
+```
+
+### 流式对话
+
+```http
+POST /chat/stream
+Content-Type: application/json
+
+{
+  "question": "图书馆几点开门？",
+  "id": "session-001"
+}
+```
+
+**响应:** Server-Sent Events (SSE) 流式数据
+
+```
+data: 根据
+
+data: 知识库
+
+data: ...
+
+data: [DONE]
+```
+
+### 上传知识库
+
+```http
+POST /upload
+Content-Type: multipart/form-data
+
+file: <document>
+```
+
+**响应:**
+```json
+{
+  "success": true,
+  "data": {
+    "filename": "校园规章.md",
+    "message": "上传成功"
+  }
+}
+```
+
+## 项目结构
+
+```
+campus-agent/
+├── cmd/
+│   └── main.go                     # 程序入口
+├── config/
+│   ├── config.yaml                 # 配置文件
+│   └── config_template.yaml        # 配置模板
+├── docs/
+│   └── knowledge/                  # 知识库 Markdown 文档
+│       ├── 16-实验报告提交.md
+│       └── 17-图书馆开放时间.md
+├── internal/
+│   ├── ai/
+│   │   ├── client/
+│   │   │   └── openai.go           # LLM 客户端（同步 + 流式）
+│   │   ├── embedder/
+│   │   │   └── embedder.go         # Embedding 服务
+│   │   └── retriever/
+│   │       └── retriever.go        # 检索路由（Qdrant + 本地回退）
+│   ├── handler/
+│   │   ├── chat.go                 # 对话处理器
+│   │   └── knowledge.go            # 知识库上传处理器
+│   ├── knowledge/
+│   │   └── local/                  # 本地文档加载与解析
+│   │       ├── loader.go
+│   │       └── parser.go
+│   ├── repo/
+│   │   └── qdrant/                 # Qdrant 向量存储
+│   │       ├── init.go
+│   │       ├── indexer.go
+│   │       └── retriever.go
+│   ├── router/
+│   │   └── router.go               # 路由配置
+│   ├── server/
+│   │   ├── chat/
+│   │   │   ├── chat.go             # 对话服务（意图路由 + 会话记忆）
+│   │   │   └── memory.go           # 会话记忆管理
+│   │   └── knowledge/
+│   │       └── knowledge.go        # 知识库管理服务
+│   └── tool/
+│       └── knowledge/
+│           └── tool.go             # 本地知识检索工具（降级方案）
+├── pkg/
+│   ├── config/
+│   │   └── config.go               # 配置解析
+│   ├── errors/
+│   │   └── errors.go               # 错误定义
+│   ├── logger/
+│   │   └── logger.go               # 日志组件
+│   ├── response/
+│   │   └── response.go             # HTTP 响应封装
+│   └── utils/
+│       └── time.go                 # 时间工具
+├── web/
+│   └── static/                     # Web 控制台
+│       ├── index.html
+│       ├── app.js
+│       └── styles.css
+├── go.mod
+└── README.md
+```
+
+## 技术栈
+
+- **框架**: [Gin](https://gin-gonic.com/)
+- **向量数据库**: [Qdrant](https://qdrant.tech/)
+- **LLM**: OpenAI 兼容 API (DeepSeek, GPT, etc.)
+- **Embedding**: OpenAI 兼容 Embedding API / Ollama
+
+## License
+
+MIT

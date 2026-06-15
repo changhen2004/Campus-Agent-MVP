@@ -1,33 +1,21 @@
 (function () {
-  const POLL_INTERVAL_MS = 3000;
-
   const state = {
-    userID: 42,
-    tasks: [],
-    selectedTaskID: null,
-    pollTimer: null,
-    pollFailures: 0,
+    sessionID: "default",
     healthy: false,
   };
 
   const els = {
     healthBadge: document.getElementById("health-badge"),
-    userIDInput: document.getElementById("user-id-input"),
+    sessionIDInput: document.getElementById("session-id-input"),
     messageList: document.getElementById("message-list"),
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
     chatSubmit: document.getElementById("chat-submit"),
     chatError: document.getElementById("chat-error"),
-    taskForm: document.getElementById("task-form"),
-    taskIDInput: document.getElementById("task-id-input"),
-    taskNameInput: document.getElementById("task-name-input"),
-    taskSubmit: document.getElementById("task-submit"),
-    taskError: document.getElementById("task-error"),
-    taskList: document.getElementById("task-list"),
-    taskDetail: document.getElementById("task-detail"),
-    taskDetailContent: document.getElementById("task-detail-content"),
-    refreshTasks: document.getElementById("refresh-tasks"),
-    refreshTaskDetail: document.getElementById("refresh-task-detail"),
+    knowledgeForm: document.getElementById("knowledge-form"),
+    knowledgeFileInput: document.getElementById("knowledge-file-input"),
+    knowledgeSubmit: document.getElementById("knowledge-submit"),
+    knowledgeError: document.getElementById("knowledge-error"),
   };
 
   function escapeHTML(value) {
@@ -39,49 +27,12 @@
       .replace(/'/g, "&#39;");
   }
 
-  function readField(source, keys, fallback = "") {
-    for (const key of keys) {
-      if (source && source[key] !== undefined && source[key] !== null) {
-        return source[key];
-      }
-    }
-    return fallback;
-  }
-
-  function normalizeTask(task) {
-    return {
-      id: readField(task, ["id", "ID"]),
-      userID: readField(task, ["user_id", "userID", "UserID"]),
-      taskName: readField(task, ["task_name", "taskName", "TaskName"]),
-      status: readField(task, ["status", "Status"], "unknown"),
-      result: readField(task, ["result", "Result"]),
-      createdAt: readField(task, ["created_at", "createdAt", "CreatedAt"]),
-    };
-  }
-
-  async function requestJSON(url, options = {}) {
-    const response = await fetch(url, options);
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok || payload.success === false) {
-      throw new Error(payload.message || `Request failed with status ${response.status}`);
-    }
-
-    return Object.prototype.hasOwnProperty.call(payload, "data") ? payload.data : payload;
-  }
-
-  function getUserID() {
-    const userID = Number(els.userIDInput.value);
-    return Number.isFinite(userID) && userID > 0 ? userID : 42;
-  }
-
   function setActionsDisabled(disabled) {
     state.healthy = !disabled;
     els.chatInput.disabled = disabled;
     els.chatSubmit.disabled = disabled;
-    els.taskIDInput.disabled = disabled;
-    els.taskNameInput.disabled = disabled;
-    els.taskSubmit.disabled = disabled;
+    els.knowledgeFileInput.disabled = disabled;
+    els.knowledgeSubmit.disabled = disabled;
   }
 
   function setFormError(target, message) {
@@ -91,80 +42,56 @@
 
   async function refreshHealth() {
     try {
-      const response = await fetch("/healthz");
+      const response = await fetch("/ping");
       if (!response.ok) {
         throw new Error("offline");
       }
-      els.healthBadge.textContent = "Online";
+      els.healthBadge.textContent = "在线";
       els.healthBadge.className = "health-badge is-online";
       setActionsDisabled(false);
     } catch (_error) {
-      els.healthBadge.textContent = "Offline";
+      els.healthBadge.textContent = "离线";
       els.healthBadge.className = "health-badge is-offline";
       setActionsDisabled(true);
-      setFormError(els.chatError, "Backend health check failed. Submit actions are disabled.");
-      setFormError(els.taskError, "Backend health check failed. Submit actions are disabled.");
+      setFormError(els.chatError, "后端健康检查失败，暂时无法使用。");
+      setFormError(els.knowledgeError, "后端健康检查失败，暂时无法上传。");
     }
   }
 
-  function appendMessage(role, bodyHTML, extraClass) {
+  function appendMessage(role, extraClass) {
     const item = document.createElement("li");
     item.className = `message ${extraClass}`;
-    item.innerHTML = `
-      <span class="message-meta">${escapeHTML(role)}</span>
-      ${bodyHTML}
-    `;
+    item.innerHTML = `<span class="message-meta">${escapeHTML(role)}</span><p></p>`;
     els.messageList.appendChild(item);
     els.messageList.scrollTop = els.messageList.scrollHeight;
     return item;
   }
 
   function appendUserMessage(message) {
-    appendMessage("You", `<p>${escapeHTML(message)}</p>`, "message-user");
+    const item = document.createElement("li");
+    item.className = "message message-user";
+    item.innerHTML = `<span class="message-meta">你</span><p>${escapeHTML(message)}</p>`;
+    els.messageList.appendChild(item);
+    els.messageList.scrollTop = els.messageList.scrollHeight;
+    return item;
   }
 
-  function appendAgentPending() {
-    return appendMessage("Agent", '<p class="loading-text">Thinking through the request...</p>', "message-agent is-pending");
+  function appendAgentStreaming() {
+    const item = document.createElement("li");
+    item.className = "message message-agent";
+    item.innerHTML = '<span class="message-meta">智能体</span><p class="streaming-content"></p>';
+    els.messageList.appendChild(item);
+    els.messageList.scrollTop = els.messageList.scrollHeight;
+    return item.querySelector(".streaming-content");
   }
 
-  function renderResultRows(results) {
-    if (!Array.isArray(results) || results.length === 0) {
-      return "";
-    }
-
-    const rows = results.map((result) => {
-      const task = readField(result, ["task", "Task"], "task");
-      const status = readField(result, ["status", "Status"], "unknown");
-      const output = readField(result, ["output", "Output"], "");
-      return `
-        <li>
-          <span>${escapeHTML(task)}</span>
-          <span class="${taskStatusClass(status)}">${escapeHTML(status)}</span>
-          <p>${escapeHTML(output)}</p>
-        </li>
-      `;
-    }).join("");
-
-    return `<ul class="result-list">${rows}</ul>`;
-  }
-
-  function renderAgentCard(data) {
-    const intent = readField(data, ["intent", "Intent"], "unknown");
-    const tasks = readField(data, ["tasks", "Tasks"], []);
-    const answer = readField(data, ["answer", "Answer"], "");
-    const results = readField(data, ["results", "Results"], []);
-    const taskText = Array.isArray(tasks) && tasks.length > 0 ? tasks.map(escapeHTML).join(", ") : "none";
-
-    return `
-      <p><strong>Intent:</strong> ${escapeHTML(intent)}</p>
-      <p><strong>Tasks:</strong> ${taskText}</p>
-      ${answer ? `<div class="answer-block">${escapeHTML(answer)}</div>` : ""}
-      ${renderResultRows(results)}
-    `;
-  }
-
-  function renderErrorMessage(message) {
-    return `<p class="inline-error">${escapeHTML(message)}</p>`;
+  function appendErrorMessage(message) {
+    const item = document.createElement("li");
+    item.className = "message message-agent message-error";
+    item.innerHTML = `<span class="message-meta">智能体</span><p>${escapeHTML(message)}</p>`;
+    els.messageList.appendChild(item);
+    els.messageList.scrollTop = els.messageList.scrollHeight;
+    return item;
   }
 
   async function handleChatSubmit(event) {
@@ -172,234 +99,130 @@
     setFormError(els.chatError, "");
 
     if (!state.healthy) {
-      setFormError(els.chatError, "Backend is offline. Try again after health recovers.");
+      setFormError(els.chatError, "后端离线，恢复后再试。");
       return;
     }
 
     const message = els.chatInput.value.trim();
     if (!message) {
-      setFormError(els.chatError, "Enter a message before sending.");
+      setFormError(els.chatError, "请输入问题后再发送。");
       return;
     }
 
     appendUserMessage(message);
-    const pendingNode = appendAgentPending();
+    const contentEl = appendAgentStreaming();
     els.chatInput.value = "";
     els.chatSubmit.disabled = true;
 
     try {
-      const data = await requestJSON("/api/v1/chat", {
+      const response = await fetch("/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: state.userID, message }),
+        body: JSON.stringify({ question: message, id: state.sessionID }),
       });
-      pendingNode.innerHTML = `
-        <span class="message-meta">Agent</span>
-        ${renderAgentCard(data)}
-      `;
-      pendingNode.className = "message message-agent";
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `请求失败，HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+
+          if (data === "[DONE]") {
+            continue;
+          }
+
+          // Decode JSON string content from SSE
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content !== undefined) {
+              contentEl.textContent += parsed.content;
+            }
+          } catch (_e) {
+            // Plain text token
+            contentEl.textContent += data;
+          }
+
+          els.messageList.scrollTop = els.messageList.scrollHeight;
+        }
+      }
     } catch (error) {
-      pendingNode.innerHTML = `
-        <span class="message-meta">Agent</span>
-        ${renderErrorMessage(error.message)}
-      `;
-      pendingNode.className = "message message-agent message-error";
+      contentEl.textContent += `\n\n[错误] ${error.message}`;
       setFormError(els.chatError, error.message);
     } finally {
       els.chatSubmit.disabled = !state.healthy;
     }
   }
 
-  function taskStatusClass(status) {
-    const safeStatus = String(status || "unknown").toLowerCase().replace(/[^a-z0-9_-]/g, "-");
-    return `status-pill status-${safeStatus}`;
-  }
-
-  function renderTaskList() {
-    if (state.tasks.length === 0) {
-      els.taskList.innerHTML = `
-        <li class="task-empty">
-          <span class="task-name">No tasks for this user</span>
-          <span class="task-status">Empty</span>
-        </li>
-      `;
-      return;
-    }
-
-    els.taskList.innerHTML = state.tasks.map((task) => {
-      const selectedClass = String(task.id) === String(state.selectedTaskID) ? " is-selected" : "";
-      return `
-        <li class="task-item${selectedClass}" data-task-id="${escapeHTML(task.id)}">
-          <button type="button" class="task-select" data-task-id="${escapeHTML(task.id)}">
-            <span class="task-name">#${escapeHTML(task.id)} ${escapeHTML(task.taskName || "untitled")}</span>
-            <span class="${taskStatusClass(task.status)}">${escapeHTML(task.status)}</span>
-          </button>
-        </li>
-      `;
-    }).join("");
-
-    els.taskList.querySelectorAll(".task-select").forEach((button) => {
-      button.addEventListener("click", () => selectTask(button.dataset.taskId));
-    });
-  }
-
-  function renderTaskDetailMessage(message, type = "muted") {
-    els.taskDetailContent.innerHTML = `<p class="detail-message detail-${escapeHTML(type)}">${escapeHTML(message)}</p>`;
-  }
-
-  function renderTaskDetail(task) {
-    const createdAt = task.createdAt ? new Date(task.createdAt).toLocaleString() : "not recorded";
-    els.taskDetailContent.innerHTML = `
-      <div class="detail-grid">
-        <span>ID</span><strong>${escapeHTML(task.id)}</strong>
-        <span>User</span><strong>${escapeHTML(task.userID)}</strong>
-        <span>Name</span><strong>${escapeHTML(task.taskName || "untitled")}</strong>
-        <span>Status</span><strong><span class="${taskStatusClass(task.status)}">${escapeHTML(task.status)}</span></strong>
-        <span>Created</span><strong>${escapeHTML(createdAt)}</strong>
-      </div>
-      <div class="result-block">
-        <span class="result-label">Result</span>
-        <pre>${escapeHTML(task.result || "No result yet.")}</pre>
-      </div>
-    `;
-    renderTaskList();
-  }
-
-  function startPolling(taskID) {
-    stopPolling();
-    state.pollTimer = window.setInterval(() => {
-      loadTaskDetail(taskID, false);
-    }, POLL_INTERVAL_MS);
-  }
-
-  function stopPolling() {
-    if (state.pollTimer) {
-      window.clearInterval(state.pollTimer);
-      state.pollTimer = null;
-    }
-  }
-
-  async function loadTaskDetail(taskID, allowPolling) {
-    if (!taskID) {
-      renderTaskDetailMessage("Select a task to inspect status, result, and execution details.");
-      return;
-    }
-
-    try {
-      const task = normalizeTask(await requestJSON(`/api/v1/tasks/${encodeURIComponent(taskID)}`));
-      state.selectedTaskID = task.id;
-      state.pollFailures = 0;
-      renderTaskDetail(task);
-
-      if (allowPolling && (task.status === "pending" || task.status === "running")) {
-        startPolling(task.id);
-        return;
-      }
-
-      if (task.status === "success" || task.status === "failed") {
-        stopPolling();
-      }
-    } catch (error) {
-      state.pollFailures += 1;
-      renderTaskDetailMessage(error.message, "error");
-      if (state.pollFailures >= 3) {
-        stopPolling();
-      }
-    }
-  }
-
-  async function refreshTasks(preferredTaskID) {
-    setFormError(els.taskError, "");
-    try {
-      const tasks = await requestJSON(`/api/v1/tasks?user_id=${encodeURIComponent(state.userID)}`);
-      state.tasks = Array.isArray(tasks) ? tasks.map(normalizeTask) : [];
-
-      const selectedTaskID = preferredTaskID || state.selectedTaskID || (state.tasks[0] && state.tasks[0].id);
-      state.selectedTaskID = selectedTaskID || null;
-      renderTaskList();
-
-      if (selectedTaskID) {
-        await loadTaskDetail(selectedTaskID, true);
-      } else {
-        stopPolling();
-        renderTaskDetailMessage("This user has no tasks yet.");
-      }
-    } catch (error) {
-      setFormError(els.taskError, error.message);
-      renderTaskDetailMessage(error.message, "error");
-    }
-  }
-
-  async function handleTaskSubmit(event) {
+  async function handleKnowledgeSubmit(event) {
     event.preventDefault();
-    setFormError(els.taskError, "");
+    setFormError(els.knowledgeError, "");
 
     if (!state.healthy) {
-      setFormError(els.taskError, "Backend is offline. Try again after health recovers.");
+      setFormError(els.knowledgeError, "后端离线，恢复后再试。");
       return;
     }
 
-    const id = Number(els.taskIDInput.value);
-    const taskName = els.taskNameInput.value.trim();
-    if (!Number.isFinite(id) || id <= 0 || !taskName) {
-      setFormError(els.taskError, "Enter a positive Task ID and a Task Name.");
+    const file = els.knowledgeFileInput.files && els.knowledgeFileInput.files[0];
+    if (!file) {
+      setFormError(els.knowledgeError, "请选择文件。");
       return;
     }
 
-    els.taskSubmit.disabled = true;
+    const formData = new FormData();
+    formData.append("file", file);
+    els.knowledgeSubmit.disabled = true;
     try {
-      const task = normalizeTask(await requestJSON("/api/v1/tasks", {
+      const response = await fetch("/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, user_id: state.userID, task_name: taskName }),
-      }));
-      els.taskForm.reset();
-      await refreshTasks(task.id || id);
-    } catch (error) {
-      setFormError(els.taskError, error.message);
-      renderTaskDetailMessage(error.message, "error");
-    } finally {
-      els.taskSubmit.disabled = !state.healthy;
-    }
-  }
+        body: formData,
+      });
+      const payload = await response.json().catch(() => ({}));
 
-  function selectTask(taskID) {
-    stopPolling();
-    state.selectedTaskID = taskID;
-    renderTaskList();
-    loadTaskDetail(taskID, true);
+      if (!response.ok || payload.success === false) {
+        throw new Error(payload.message || `上传失败，HTTP ${response.status}`);
+      }
+
+      els.knowledgeForm.reset();
+      setFormError(els.knowledgeError, `已上传 ${file.name}，知识库已更新。`);
+    } catch (error) {
+      setFormError(els.knowledgeError, error.message);
+    } finally {
+      els.knowledgeSubmit.disabled = !state.healthy;
+    }
   }
 
   function bindEvents() {
-    els.userIDInput.addEventListener("change", () => {
-      state.userID = getUserID();
-      els.userIDInput.value = state.userID;
-      state.selectedTaskID = null;
-      stopPolling();
-      refreshTasks();
+    els.sessionIDInput.addEventListener("change", () => {
+      state.sessionID = els.sessionIDInput.value.trim() || "default";
     });
 
     els.chatForm.addEventListener("submit", handleChatSubmit);
-    els.taskForm.addEventListener("submit", handleTaskSubmit);
-    els.refreshTasks.addEventListener("click", () => {
-      stopPolling();
-      refreshTasks();
-    });
-    els.refreshTaskDetail.addEventListener("click", () => {
-      stopPolling();
-      loadTaskDetail(state.selectedTaskID, true);
-    });
+    els.knowledgeForm.addEventListener("submit", handleKnowledgeSubmit);
   }
 
   async function bootstrap() {
-    state.userID = getUserID();
-    els.userIDInput.value = state.userID;
+    state.sessionID = els.sessionIDInput.value.trim() || "default";
     bindEvents();
-    renderTaskDetailMessage("Select a task to inspect status, result, and execution details.");
     await refreshHealth();
-    await refreshTasks();
+
+    // Periodic health check
+    setInterval(refreshHealth, 30000);
   }
 
-  window.addEventListener("beforeunload", stopPolling);
   bootstrap();
 }());

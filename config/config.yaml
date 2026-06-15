@@ -1,0 +1,23 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+llm:
+  endpoint: "https://api.deepseek.com/v1"
+  api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
+  model: "deepseek-chat"
+
+embedding:
+  provider: "openai"
+  endpoint: "https://api.deepseek.com/v1"
+  api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
+  model: "text-embedding-3-small"
+  dimension: 1536
+
+qdrant:
+  host: "127.0.0.1"
+  port: 6334
+  collection: "campus_knowledge"
+
+rag:
+  similarity_threshold: 0.6

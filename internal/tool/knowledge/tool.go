@@ -3,6 +3,7 @@ package knowledge
 import (
 	"context"
 	"strings"
+	"sync"
 )
 
 type Tool interface {
@@ -16,6 +17,7 @@ type Document struct {
 }
 
 type LocalTool struct {
+	mu        sync.RWMutex
 	documents []Document
 }
 
@@ -31,6 +33,9 @@ func (t *LocalTool) Search(_ context.Context, query string) ([]string, error) {
 		return []string{}, nil
 	}
 
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	results := make([]string, 0)
 	for _, doc := range t.documents {
 		if documentMatches(doc, query) {
@@ -38,6 +43,12 @@ func (t *LocalTool) Search(_ context.Context, query string) ([]string, error) {
 		}
 	}
 	return results, nil
+}
+
+func (t *LocalTool) AddDocuments(documents ...Document) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.documents = append(t.documents, documents...)
 }
 
 func documentMatches(doc Document, query string) bool {
