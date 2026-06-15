@@ -66,6 +66,13 @@ button:hover {
   filter: saturate(1.08) brightness(1.02);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  filter: grayscale(0.18);
+  box-shadow: none;
+}
+
 label {
   display: block;
   color: var(--clay);
@@ -206,6 +213,15 @@ h2 {
   margin-bottom: 18px;
 }
 
+.secondary-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(111, 55, 45, 0.16);
+  color: var(--clay);
+  background: rgba(255, 248, 236, 0.9);
+  box-shadow: none;
+}
+
 .panel-marker {
   padding: 5px 9px;
   border: 1px solid rgba(82, 105, 122, 0.24);
@@ -248,6 +264,21 @@ h2 {
   border: 1px solid rgba(95, 143, 105, 0.22);
   color: #1f3928;
   background: rgba(95, 143, 105, 0.12);
+}
+
+.message-user {
+  margin-left: auto;
+  border: 1px solid rgba(82, 105, 122, 0.18);
+  background: rgba(82, 105, 122, 0.1);
+}
+
+.message-error {
+  border-color: rgba(183, 77, 62, 0.28);
+  background: rgba(183, 77, 62, 0.1);
+}
+
+.is-pending {
+  opacity: 0.9;
 }
 
 .message-meta {
@@ -306,14 +337,48 @@ h2 {
 }
 
 .task-list li {
+  border-radius: 8px;
+}
+
+.task-item {
+  border: 1px solid rgba(111, 55, 45, 0.14);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.task-select {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.task-select:hover {
+  filter: none;
+  background: rgba(255, 248, 236, 0.5);
+}
+
+.task-item.is-selected {
+  border-color: rgba(169, 79, 50, 0.38);
+  box-shadow: 0 0 0 2px rgba(217, 130, 43, 0.12) inset;
+}
+
+.task-empty {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
   padding: 12px;
-  border: 1px solid rgba(111, 55, 45, 0.14);
+  border: 1px dashed rgba(111, 55, 45, 0.16);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .task-name {
@@ -328,6 +393,135 @@ h2 {
   background: rgba(217, 130, 43, 0.16);
   font-size: 0.75rem;
   font-weight: 800;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.status-pill.status-success,
+.health-badge.is-online {
+  color: #eef8ef;
+  background: var(--sage);
+}
+
+.status-pill.status-running {
+  color: #4e3100;
+  background: rgba(204, 138, 46, 0.32);
+}
+
+.status-pill.status-failed,
+.health-badge.is-offline {
+  color: #fff6f5;
+  background: var(--terracotta);
+}
+
+.status-pill.status-pending {
+  color: #6a4310;
+  background: rgba(239, 216, 176, 0.9);
+}
+
+.form-error {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--terracotta);
+  font-size: 0.84rem;
+}
+
+.form-error:not(.is-visible) {
+  opacity: 0;
+}
+
+.inline-error,
+.detail-error {
+  color: var(--terracotta);
+}
+
+.detail-message {
+  margin: 0;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 14px;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+
+.detail-grid span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.result-block {
+  display: grid;
+  gap: 8px;
+}
+
+.result-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.result-block pre {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid rgba(111, 55, 45, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.54);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.answer-block {
+  margin: 12px 0;
+  padding: 12px;
+  border-left: 3px solid var(--sage);
+  border-radius: 8px;
+  background: rgba(95, 143, 105, 0.08);
+}
+
+.result-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result-list li {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(111, 55, 45, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.result-list p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.loading-text {
+  color: var(--muted);
+  font-style: italic;
 }
 
 .task-detail {
@@ -366,5 +560,17 @@ h2 {
 
   .message {
     width: 100%;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+  }
+
+  .secondary-button {
+    align-self: flex-start;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
   }
 }
