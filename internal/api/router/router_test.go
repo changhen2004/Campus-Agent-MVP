@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -66,6 +67,28 @@ func TestRootRouteServesIndexPage(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "Campus Agent Console") {
 		t.Fatalf("missing console title: %s", rec.Body.String())
+	}
+}
+
+func TestRootRouteUsesConsoleShell(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	engine := New(
+		handler.NewChatHandler(chatServiceStub()),
+		handler.NewTaskHandler(taskServiceStub()),
+		http.FS(os.DirFS("../../../web/static")),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if !strings.Contains(rec.Body.String(), "Campus Agent Console") {
+		t.Fatalf("missing title in shell: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "id=\"chat-form\"") {
+		t.Fatalf("missing chat form in shell: %s", rec.Body.String())
 	}
 }
 

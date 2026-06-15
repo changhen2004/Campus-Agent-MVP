@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Campus Agent Console</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main class="console-shell">
+    <header class="hero card">
+      <div>
+        <p class="eyebrow">Campus workflow assistant</p>
+        <h1>Campus Agent Console</h1>
+        <p class="hero-copy">Coordinate student requests, chat with the campus agent, and track background tasks from one warm, focused workspace.</p>
+      </div>
+      <div class="user-strip" aria-label="Session controls">
+        <label for="user-id-input">User ID</label>
+        <input id="user-id-input" name="user_id" type="number" min="1" value="42" inputmode="numeric">
+        <span id="health-badge" class="health-badge" role="status">Checking health</span>
+      </div>
+    </header>
+
+    <section class="workspace" aria-label="Campus Agent Console workspace">
+      <section class="conversation-panel card" aria-labelledby="chat-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Conversation</p>
+            <h2 id="chat-heading">Ask the agent</h2>
+          </div>
+          <span class="panel-marker">Live desk</span>
+        </div>
+
+        <ol id="message-list" class="message-list" aria-live="polite">
+          <li class="message message-agent">
+            <span class="message-meta">Agent</span>
+            <p>Tell me what you need: course lookup, campus service status, or a task you want queued.</p>
+          </li>
+        </ol>
+
+        <form id="chat-form" class="composer" action="/api/v1/chat" method="post">
+          <label for="chat-message">Message</label>
+          <div class="composer-row">
+            <textarea id="chat-message" name="message" rows="3" placeholder="Ask about tomorrow's schedule..."></textarea>
+            <button type="submit">Send</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="side-panel" aria-label="Tasks">
+        <section class="card task-card" aria-labelledby="task-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Async task</p>
+              <h2 id="task-heading">Create task</h2>
+            </div>
+          </div>
+
+          <form id="task-form" class="stacked-form" action="/api/v1/tasks" method="post">
+            <label for="task-name">Task name</label>
+            <input id="task-name" name="task_name" type="text" placeholder="query_course">
+
+            <label for="task-payload">Payload</label>
+            <textarea id="task-payload" name="payload" rows="4" placeholder='{"date":"tomorrow"}'></textarea>
+
+            <button type="submit">Queue task</button>
+          </form>
+        </section>
+
+        <section class="card task-card" aria-labelledby="task-list-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Queue</p>
+              <h2 id="task-list-heading">Task list</h2>
+            </div>
+          </div>
+          <ul id="task-list" class="task-list">
+            <li>
+              <span class="task-name">No tasks loaded</span>
+              <span class="task-status">Idle</span>
+            </li>
+          </ul>
+        </section>
+
+        <section id="task-detail" class="card task-detail" aria-labelledby="task-detail-heading">
+          <p class="eyebrow">Selected task</p>
+          <h2 id="task-detail-heading">Task detail</h2>
+          <p>Select a task to inspect status, result, and execution details.</p>
+        </section>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>
