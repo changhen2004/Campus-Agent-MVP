@@ -1,4 +1,4 @@
-# Campus Agent Console Frontend 实现计划
+# Campus Agent Console 前端实现计划
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
@@ -597,18 +597,18 @@ git commit -m "feat: add campus agent console interactions"
 在 `README.md` 增加：
 
 ```md
-## Web Console
+## Web 控制台
 
-Start the server with `go run ./cmd/server`.
+执行 `go run ./cmd/server` 启动服务。
 
-Then open `http://localhost:8080/` to access the Campus Agent Console.
+然后打开 `http://localhost:8080/` 访问 Campus Agent Console。
 
-The console supports:
+控制台支持：
 
-- backend health check
-- chat requests through `/api/v1/chat`
-- async task creation through `/api/v1/tasks`
-- task list and task detail polling
+- 后端健康检查
+- 通过 `/api/v1/chat` 发起聊天请求
+- 通过 `/api/v1/tasks` 创建异步任务
+- 任务列表与任务详情轮询
 ```
 
 - [ ] **步骤 2：运行完整验证**

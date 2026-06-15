@@ -1,4 +1,4 @@
-# Campus Agent MVP 实现计划
+# Campus Agent MVP 初始化实现计划
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
@@ -13,7 +13,7 @@
 ### 任务 1：编写模块设计文档
 
 **文件：**
-- 创建：`docs/superpowers/specs/2026-06-14-campus-agent-mvp-design.md`
+- 创建：`docs/superpowers/specs/02-campus-agent-mvp-模块设计.md`
 
 - [ ] **步骤 1：整理模块边界**
 
@@ -28,7 +28,7 @@
 确认文档落到：
 
 ```text
-docs/superpowers/specs/2026-06-14-campus-agent-mvp-design.md
+docs/superpowers/specs/02-campus-agent-mvp-模块设计.md
 ```
 
 ### 任务 2：初始化项目目录结构
