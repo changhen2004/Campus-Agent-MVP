@@ -1,0 +1,56 @@
+# Task Query API 实现计划
+
+> **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
+
+**目标：** 增加 `GET /api/v1/tasks/:id` 接口，用于查询异步任务状态和执行结果。
+
+**架构：** `internal/app/task` 增加读取用例，`internal/api/handler` 负责路径参数校验和响应映射，`internal/api/router` 负责暴露 GET 路由。底层继续复用现有 `taskdomain.Repository.FindByID`。
+
+**技术栈：** Gin、现有 task repository、Go testing。
+
+---
+
+### 任务 1：任务读取用例
+
+**文件：**
+- 修改：`internal/app/task/service.go`
+
+- [ ] **步骤 1：编写失败测试**
+
+覆盖按 ID 读取任务、repo 未配置时报错。
+
+- [ ] **步骤 2：实现 `GetTask`**
+
+签名：
+
+```go
+func (s *Service) GetTask(ctx context.Context, id int64) (taskdomain.Task, error)
+```
+
+### 任务 2：HTTP Handler 和 Router
+
+**文件：**
+- 修改：`internal/api/handler/task.go`
+- 修改：`internal/api/router/router.go`
+- 修改：`internal/api/router/router_test.go`
+
+- [ ] **步骤 1：编写失败测试**
+
+覆盖 `GET /api/v1/tasks/:id` 正常返回和非法 ID 返回 400。
+
+- [ ] **步骤 2：实现 handler**
+
+解析 `:id`，调用 `GetTask`，返回 JSON。
+
+### 任务 3：验证
+
+**文件：**
+- 修改：`README.md`
+
+- [ ] **步骤 1：更新 README**
+
+说明任务创建和任务查询两条 API。
+
+- [ ] **步骤 2：运行验证**
+
+运行：`go test ./internal/app/task ./internal/api/router` 和 `go test ./...`。

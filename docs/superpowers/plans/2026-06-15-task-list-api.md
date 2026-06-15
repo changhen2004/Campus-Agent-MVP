@@ -1,0 +1,52 @@
+# Task List API 实现计划
+
+> **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
+
+**目标：** 增加 `GET /api/v1/tasks?user_id=...` 接口，用于按用户查询异步任务列表。
+
+**架构：** `taskdomain.Repository` 增加 `ListByUser`，`internal/repository/mysql` 提供实现，`internal/app/task` 提供读取用例，`internal/api/handler` 负责 query 参数校验和响应映射，`router` 暴露 GET 列表路由。
+
+**技术栈：** Gorm、Gin、Go testing。
+
+---
+
+### 任务 1：Repository 列表查询
+
+**文件：**
+- 修改：`internal/domain/task/entity.go`
+- 修改：`internal/repository/mysql/task_repository.go`
+- 修改：`internal/repository/mysql/task_repository_test.go`
+
+- [ ] **步骤 1：编写失败测试**
+
+覆盖按 `user_id` 查询任务，并按 `created_at desc, id desc` 返回。
+
+- [ ] **步骤 2：实现 `ListByUser`**
+
+### 任务 2：Service 和 HTTP 接口
+
+**文件：**
+- 修改：`internal/app/task/service.go`
+- 修改：`internal/app/task/service_test.go`
+- 修改：`internal/api/handler/task.go`
+- 修改：`internal/api/router/router.go`
+- 修改：`internal/api/router/router_test.go`
+
+- [ ] **步骤 1：编写失败测试**
+
+覆盖 `GET /api/v1/tasks?user_id=42` 正常返回，`user_id` 非法时返回 400。
+
+- [ ] **步骤 2：实现 `ListTasks` 和 GET 列表接口**
+
+### 任务 3：验证
+
+**文件：**
+- 修改：`README.md`
+
+- [ ] **步骤 1：更新 README**
+
+补充任务列表接口说明。
+
+- [ ] **步骤 2：运行验证**
+
+运行：`go test ./internal/repository/mysql ./internal/app/task ./internal/api/router` 和 `go test ./...`。

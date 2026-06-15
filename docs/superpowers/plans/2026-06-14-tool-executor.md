@@ -1,0 +1,71 @@
+# Tool Executor 实现计划
+
+> **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
+
+**目标：** 将 `StubExecutor` 演进为可分发校园任务的 `ToolExecutor`，支持课程查询、提醒创建和知识检索三个 MVP 工具。
+
+**架构：** `internal/agent/executor` 负责根据 `planner.TaskName` 选择工具；`internal/tool/*` 继续封装具体能力。`planner.Task` 增加 `UserID` 和 `Input`，用于把用户上下文和原始请求传给工具。
+
+**技术栈：** Go testing、现有 planner task、CourseTool、ReminderTool、KnowledgeTool。
+
+---
+
+### 任务 1：ToolExecutor 分发
+
+**文件：**
+- 修改：`internal/agent/planner/planner.go`
+- 修改：`internal/agent/executor/executor.go`
+- 创建：`internal/agent/executor/tool_executor_test.go`
+
+- [ ] **步骤 1：编写失败测试**
+
+覆盖 `query_course` 调用 CourseTool、`create_reminder` 调用 ReminderTool、`search_knowledge` 调用 KnowledgeTool。
+
+- [ ] **步骤 2：实现任务上下文**
+
+为 `planner.Task` 增加 `UserID int64` 和 `Input string`。
+
+- [ ] **步骤 3：实现 ToolExecutor**
+
+新增 `NewToolExecutor(courseTool, reminderTool, knowledgeTool)`，根据任务名分发。
+
+### 任务 2：应用链路填充上下文
+
+**文件：**
+- 修改：`internal/app/chat/service.go`
+- 修改：`internal/app/task/execution_handler.go`
+
+- [ ] **步骤 1：聊天链路填充上下文**
+
+`ChatService.Handle` 在调用 executor 前为每个 task 填入 `UserID` 和原始 `Message`。
+
+- [ ] **步骤 2：异步任务链路填充上下文**
+
+`ExecutionHandler` 将 `TaskMessage.UserID` 和 `TaskMessage.TaskName` 填入任务上下文。
+
+### 任务 3：进程装配
+
+**文件：**
+- 修改：`internal/server/services.go`
+- 修改：`internal/worker/worker.go`
+
+- [ ] **步骤 1：server 使用 ToolExecutor**
+
+server 的 chat service 使用 ToolExecutor 和 stub tools。
+
+- [ ] **步骤 2：worker 使用 ToolExecutor**
+
+worker 的 task execution consumer 使用 ToolExecutor 和 stub tools。
+
+### 任务 4：文档与验证
+
+**文件：**
+- 修改：`README.md`
+
+- [ ] **步骤 1：更新 README 状态**
+
+说明 executor 已能分发到课程、提醒、知识工具。
+
+- [ ] **步骤 2：运行验证**
+
+运行：`go test ./internal/agent/executor` 和 `go test ./...`。

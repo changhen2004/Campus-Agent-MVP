@@ -1,0 +1,32 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+mysql:
+  host: "mysql"
+  port: 3306
+  user: "campus"
+  password: "campus"
+  database: "campus_agent"
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+
+rabbitmq:
+  addr: "amqp://guest:guest@rabbitmq:5672/"
+  exchange: "campus.agent"
+  task_execute_queue: "task.execute"
+  task_notification_queue: "task.notification"
+
+llm:
+  provider: "openai-compatible"
+  endpoint: "https://api.example.com/v1"
+  api_key: "replace-me"
+  model: "deepseek-chat"
+
+rag:
+  provider: "qdrant"
+  endpoint: "http://qdrant:6333"
+  collection: "campus_knowledge"
