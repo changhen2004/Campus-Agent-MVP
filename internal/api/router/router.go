@@ -1,7 +1,6 @@
 package router
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 
@@ -14,10 +13,6 @@ func New(chatHandler *handler.ChatHandler, taskHandler *handler.TaskHandler, sta
 	engine.Use(gin.Recovery())
 
 	if staticFS != nil {
-		if err := ensureStaticIndex(staticFS); err != nil {
-			panic(fmt.Sprintf("static assets misconfigured: %v", err))
-		}
-
 		engine.StaticFS("/static", staticFS)
 		engine.GET("/", func(c *gin.Context) {
 			file, err := staticFS.Open("index.html")
@@ -48,12 +43,4 @@ func New(chatHandler *handler.ChatHandler, taskHandler *handler.TaskHandler, sta
 	api.GET("/tasks/:id", taskHandler.GetTask)
 
 	return engine
-}
-
-func ensureStaticIndex(staticFS http.FileSystem) error {
-	file, err := staticFS.Open("index.html")
-	if err != nil {
-		return err
-	}
-	return file.Close()
 }

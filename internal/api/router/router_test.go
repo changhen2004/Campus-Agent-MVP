@@ -74,7 +74,6 @@ func TestStaticAssetRouteServesCSS(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	staticFS := http.FS(fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: []byte("<html><body>Campus Agent Console</body></html>")},
 		"styles.css": &fstest.MapFile{Data: []byte("body { color: #111; }")},
 	})
 
@@ -91,27 +90,6 @@ func TestStaticAssetRouteServesCSS(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status mismatch: got %d want %d", rec.Code, http.StatusOK)
 	}
-}
-
-func TestNewPanicsWhenStaticIndexIsMissing(t *testing.T) {
-	t.Parallel()
-	gin.SetMode(gin.TestMode)
-
-	staticFS := http.FS(fstest.MapFS{
-		"styles.css": &fstest.MapFile{Data: []byte("body { color: #111; }")},
-	})
-
-	defer func() {
-		if recover() == nil {
-			t.Fatal("expected panic when index.html is missing")
-		}
-	}()
-
-	New(
-		handler.NewChatHandler(chatServiceStub()),
-		handler.NewTaskHandler(taskServiceStub()),
-		staticFS,
-	)
 }
 
 func TestChatRoute(t *testing.T) {
