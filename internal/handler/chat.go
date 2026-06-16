@@ -58,9 +58,8 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 
-	// Buffered channel to avoid goroutine blocking on disconnected clients
 	ch := make(chan string, 8)
-	done := make(chan struct{})
+	done := make(chan struct{}, 1)
 
 	go h.service.ChatStream(c.Request.Context(), req.Question, req.ID, ch, done)
 
@@ -72,12 +71,13 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 		}
 		token, ok := <-ch
 		if !ok {
-			c.SSEvent("message", "data: [DONE]\n\n")
+			// Channel closed — stream finished normally
+			fmt.Fprintf(c.Writer, "data: [DONE]\n\n")
 			c.Writer.Flush()
 			return
 		}
-		event := fmt.Sprintf("data: %v\n\n", token)
-		c.SSEvent("message", event)
+		// Write raw SSE format: "data: <content>\n\n"
+		fmt.Fprintf(c.Writer, "data: %s\n\n", token)
 		c.Writer.Flush()
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"campus-agent/internal/ai/client"
 	"campus-agent/internal/ai/embedder"
@@ -43,19 +44,26 @@ func main() {
 	// Initialize local knowledge store (always available as fallback)
 	localStore := knowledgetool.NewLocalTool(knowledgeDocs)
 
-	// Initialize LLM client
-	llmClient := client.New(cfg.LLM)
+	// Initialize LLM client (powered by Eino ChatModel)
+	llmClient, err := client.New(cfg.LLM)
+	if err != nil {
+		log.Fatalf("[main] llm client init failed: %v", err)
+	}
 
-	// Attempt to initialize Qdrant + Embedding
+	// Attempt to initialize Embedding + Qdrant
+	// Embedder now supports multiple providers (openai, ollama) via Eino framework.
 	var qdrantClient *qdrant.Client
 	var qdrantIdx *qdrant.Indexer
 	var qdrantRet *qdrant.Retriever
 	var embedderService *embedder.Embedder
 
-	if cfg.Embedding.APIKey != "" && cfg.Embedding.APIKey != "replace-me" {
-		embedderService = embedder.New(cfg.Embedding)
-
-		qdrantClient, err = qdrant.NewClient(ctx, cfg.Qdrant, cfg.Embedding.Dimension)
+	embedderService, err = embedder.New(cfg.Embedding)
+	if err != nil {
+		log.Printf("[main] embedder init failed (will use local search): %v", err)
+	} else {
+		qdrantCtx, qdrantCancel := context.WithTimeout(ctx, 5*time.Second)
+		defer qdrantCancel()
+		qdrantClient, err = qdrant.NewClient(qdrantCtx, cfg.Qdrant, cfg.Embedding.Dimension)
 		if err != nil {
 			log.Printf("[main] qdrant init failed (will use local search): %v", err)
 		} else {
@@ -81,7 +89,10 @@ func main() {
 	ret := retriever.New(qdrantRet, localStore, cfg.RAG)
 
 	// Initialize services
-	chatService := chat.NewService(llmClient, ret, cfg.RAG)
+	chatService, err := chat.NewService(llmClient, ret, cfg.RAG)
+	if err != nil {
+		log.Fatalf("[main] chat service init failed: %v", err)
+	}
 	knowledgeService := knowledge.NewService(localStore, qdrantIdx)
 
 	// Initialize handlers

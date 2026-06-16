@@ -3,21 +3,21 @@ server:
   port: 8080
 
 llm:
-  endpoint: "https://api.openai.com/v1"
-  api_key: "your-api-key"
-  model: "gpt-4o"
+  endpoint: "https://api.deepseek.com/"
+  api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
+  model: "deepseek-chat"
 
 embedding:
   provider: "openai"
-  endpoint: "https://api.openai.com/v1"
-  api_key: "your-api-key"
-  model: "text-embedding-3-small"
+  endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  api_key: "sk-09879625324744bfb78cd51dea389a89"
+  model: "text-embedding-v2"
   dimension: 1536
 
 qdrant:
   host: "127.0.0.1"
   port: 6334
-  collection: "campus_knowledge"
+  collection: "knowledge"
 
 rag:
   similarity_threshold: 0.6

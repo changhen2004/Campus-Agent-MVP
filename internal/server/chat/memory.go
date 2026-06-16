@@ -3,14 +3,15 @@ package chat
 import (
 	"sync"
 
-	"campus-agent/internal/ai/client"
+	"github.com/cloudwego/eino/schema"
 )
 
 const DefaultMaxWindowSize = 10
 
+// SessionMemory holds the sliding-window message history for a session.
 type SessionMemory struct {
-	mu           sync.Mutex
-	Messages     []client.ChatMessage
+	mu            sync.Mutex
+	Messages      []*schema.Message
 	MaxWindowSize int
 }
 
@@ -24,14 +25,14 @@ func loadOrCreateSession(id string) *SessionMemory {
 	}
 
 	mem := &SessionMemory{
-		Messages:      make([]client.ChatMessage, 0, DefaultMaxWindowSize),
+		Messages:      make([]*schema.Message, 0, DefaultMaxWindowSize),
 		MaxWindowSize: DefaultMaxWindowSize,
 	}
 	sessionStore.Store(id, mem)
 	return mem
 }
 
-func (m *SessionMemory) append(userMsg, assistantMsg client.ChatMessage) {
+func (m *SessionMemory) append(userMsg, assistantMsg *schema.Message) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -41,11 +42,11 @@ func (m *SessionMemory) append(userMsg, assistantMsg client.ChatMessage) {
 	}
 }
 
-func (m *SessionMemory) snapshot() []client.ChatMessage {
+func (m *SessionMemory) snapshot() []*schema.Message {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	cp := make([]client.ChatMessage, len(m.Messages))
+	cp := make([]*schema.Message, len(m.Messages))
 	copy(cp, m.Messages)
 	return cp
 }

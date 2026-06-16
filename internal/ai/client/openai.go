@@ -1,211 +1,93 @@
 package client
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"strings"
 
 	"campus-agent/pkg/config"
+
+	openaimdl "github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/cloudwego/eino/schema"
 )
 
-type Client struct {
-	endpoint   string
-	apiKey     string
-	model      string
-	httpClient *http.Client
-}
+// ChatMessage is a type alias for Eino's schema.Message.
+// Code that previously used client.ChatMessage now uses *schema.Message transparently.
+type ChatMessage = schema.Message
 
-type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
+// Message constructors — thin aliases so existing call sites compile with minimal diff.
+var (
+	SystemMessage    = schema.SystemMessage
+	UserMessage      = schema.UserMessage
+	AssistantMessage = schema.AssistantMessage
+)
 
-type chatCompletionRequest struct {
-	Model    string        `json:"model"`
-	Messages []ChatMessage `json:"messages"`
-	Stream   bool          `json:"stream"`
-}
-
-type chatCompletionResponse struct {
-	Choices []struct {
-		Message ChatMessage `json:"message"`
-		Delta   struct {
-			Content string `json:"content"`
-		} `json:"delta"`
-	} `json:"choices"`
-	Error *struct {
-		Message string `json:"message"`
-	} `json:"error,omitempty"`
-}
-
-func New(cfg config.LLMConfig) *Client {
-	return &Client{
-		endpoint: strings.TrimRight(cfg.Endpoint, "/"),
-		apiKey:   cfg.APIKey,
-		model:    cfg.Model,
-		httpClient: &http.Client{
-			Transport: &http.Transport{
-				MaxIdleConns: 20,
-			},
-		},
-	}
-}
-
-func (c *Client) Complete(ctx context.Context, messages []ChatMessage) (string, error) {
-	if err := c.validate(); err != nil {
-		return "", err
-	}
-
-	reqBody := chatCompletionRequest{
-		Model:    c.model,
-		Messages: messages,
-		Stream:   false,
-	}
-
-	raw, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("marshal llm request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/chat/completions", bytes.NewReader(raw))
-	if err != nil {
-		return "", fmt.Errorf("build llm request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("call llm api: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var decoded chatCompletionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		return "", fmt.Errorf("decode llm response: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		if decoded.Error != nil && decoded.Error.Message != "" {
-			return "", fmt.Errorf("llm api %d: %s", resp.StatusCode, decoded.Error.Message)
-		}
-		return "", fmt.Errorf("llm api returned %d", resp.StatusCode)
-	}
-
-	if len(decoded.Choices) == 0 || strings.TrimSpace(decoded.Choices[0].Message.Content) == "" {
-		return "", errors.New("llm api returned empty answer")
-	}
-
-	return strings.TrimSpace(decoded.Choices[0].Message.Content), nil
-}
-
-// StreamCallback is called for each token chunk. Return an error to abort streaming.
+// StreamCallback is called for each content chunk during streaming.
 type StreamCallback func(token string) error
 
-func (c *Client) CompleteStream(ctx context.Context, messages []ChatMessage, callback StreamCallback) error {
-	if err := c.validate(); err != nil {
-		return err
+// Client wraps an Eino ChatModel implementation (OpenAI-compatible) to provide
+// a simplified interface matching the original hand-rolled client.
+type Client struct {
+	model *openaimdl.ChatModel
+	cfg   config.LLMConfig
+}
+
+// New creates a ChatModel client for the given LLM provider.
+//
+// DeepSeek is supported by setting BaseURL to "https://api.deepseek.com/v1".
+func New(cfg config.LLMConfig) (*Client, error) {
+	if cfg.Model == "" {
+		return nil, fmt.Errorf("llm model is not configured")
+	}
+	if cfg.APIKey == "" || cfg.APIKey == "replace-me" {
+		return nil, fmt.Errorf("llm api_key is not configured")
 	}
 
-	reqBody := chatCompletionRequest{
-		Model:    c.model,
-		Messages: messages,
-		Stream:   true,
-	}
-
-	raw, err := json.Marshal(reqBody)
+	model, err := openaimdl.NewChatModel(context.Background(), &openaimdl.ChatModelConfig{
+		APIKey:  cfg.APIKey,
+		BaseURL: cfg.Endpoint,
+		Model:   cfg.Model,
+	})
 	if err != nil {
-		return fmt.Errorf("marshal llm request: %w", err)
+		return nil, fmt.Errorf("create chat model: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/chat/completions", bytes.NewReader(raw))
+	return &Client{model: model, cfg: cfg}, nil
+}
+
+// Complete sends messages and returns the full assistant response.
+func (c *Client) Complete(ctx context.Context, messages []*ChatMessage) (string, error) {
+	msg, err := c.model.Generate(ctx, messages)
 	if err != nil {
-		return fmt.Errorf("build llm request: %w", err)
+		return "", fmt.Errorf("llm generate: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	req.Header.Set("Accept", "text/event-stream")
+	if msg == nil || msg.Content == "" {
+		return "", fmt.Errorf("llm returned empty response")
+	}
+	return msg.Content, nil
+}
 
-	resp, err := c.httpClient.Do(req)
+// CompleteStream streams tokens via callback. The callback receives each content
+// chunk as it arrives; return a non-nil error to abort streaming.
+func (c *Client) CompleteStream(ctx context.Context, messages []*ChatMessage, callback StreamCallback) error {
+	stream, err := c.model.Stream(ctx, messages)
 	if err != nil {
-		return fmt.Errorf("call llm api: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("llm api returned %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("llm stream: %w", err)
 	}
 
-	reader := bufio.NewReader(resp.Body)
 	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return fmt.Errorf("read stream: %w", err)
-		}
-
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, ":") {
-			continue
-		}
-
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
+		chunk, recvErr := stream.Recv()
+		if recvErr == io.EOF {
 			break
 		}
-
-		var chunk chatCompletionResponse
-		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			continue
+		if recvErr != nil {
+			return fmt.Errorf("stream recv: %w", recvErr)
 		}
-
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			if err := callback(chunk.Choices[0].Delta.Content); err != nil {
-				return err
+		if chunk.Content != "" {
+			if cbErr := callback(chunk.Content); cbErr != nil {
+				return cbErr
 			}
 		}
 	}
-
 	return nil
-}
-
-func (c *Client) validate() error {
-	if strings.TrimSpace(c.endpoint) == "" {
-		return errors.New("llm endpoint is not configured")
-	}
-	if strings.TrimSpace(c.apiKey) == "" || c.apiKey == "replace-me" {
-		return errors.New("llm api key is not configured")
-	}
-	if strings.TrimSpace(c.model) == "" {
-		return errors.New("llm model is not configured")
-	}
-	return nil
-}
-
-// SystemMessage creates a system message.
-func SystemMessage(content string) ChatMessage {
-	return ChatMessage{Role: "system", Content: content}
-}
-
-// UserMessage creates a user message.
-func UserMessage(content string) ChatMessage {
-	return ChatMessage{Role: "user", Content: content}
-}
-
-// AssistantMessage creates an assistant message.
-func AssistantMessage(content string) ChatMessage {
-	return ChatMessage{Role: "assistant", Content: content}
 }

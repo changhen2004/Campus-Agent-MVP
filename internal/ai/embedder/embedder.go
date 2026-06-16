@@ -1,108 +1,144 @@
 package embedder
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
+	"time"
 
 	"campus-agent/pkg/config"
+
+	"github.com/cloudwego/eino/components/embedding"
+	openaiemb "github.com/cloudwego/eino-ext/components/embedding/openai"
+	ollamaemb "github.com/cloudwego/eino-ext/components/embedding/ollama"
 )
 
+const (
+	maxRetries    = 5
+	baseDelay     = 2 * time.Second
+	maxDelay      = 60 * time.Second
+	requestPause  = 200 * time.Millisecond // pace between requests to avoid burst
+)
+
+// Embedder wraps an Eino embedding.Embedder with retry and rate-limiting.
 type Embedder struct {
-	endpoint   string
-	apiKey     string
-	model      string
-	dimension  int
-	httpClient *http.Client
+	impl      embedding.Embedder
+	model     string
+	pauseCh   <-chan time.Time // nil means no pacing needed (first request is instant)
 }
 
-type embeddingRequest struct {
-	Model string `json:"model"`
-	Input string `json:"input"`
-}
-
-type embeddingResponse struct {
-	Data []struct {
-		Embedding []float64 `json:"embedding"`
-	} `json:"data"`
-	Error *struct {
-		Message string `json:"message"`
-	} `json:"error,omitempty"`
-}
-
-type ollamaEmbeddingRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
-}
-
-type ollamaEmbeddingResponse struct {
-	Embedding []float64 `json:"embedding"`
-	Error     string    `json:"error"`
-}
-
-func New(cfg config.EmbeddingConfig) *Embedder {
-	return &Embedder{
-		endpoint:  strings.TrimRight(cfg.Endpoint, "/"),
-		apiKey:    cfg.APIKey,
-		model:     cfg.Model,
-		dimension: cfg.Dimension,
-		httpClient: &http.Client{
-			Transport: &http.Transport{
-				MaxIdleConns: 10,
-			},
-		},
+// New creates an Embedder based on the provider specified in config.
+//
+// Supported providers:
+//   - "openai" — OpenAI-compatible API (openai, dashscope, siliconflow, etc.)
+//   - "ollama" — Local Ollama server (no rate limits, no retry needed)
+//
+// An empty provider defaults to "openai".
+func New(cfg config.EmbeddingConfig) (*Embedder, error) {
+	if cfg.Model == "" {
+		return nil, errors.New("embedding model is not configured")
 	}
+
+	var impl embedding.Embedder
+	var err error
+	ctx := context.Background()
+
+	switch cfg.Provider {
+	case "ollama":
+		impl, err = newOllamaEmbedder(ctx, cfg)
+	default: // "openai" or ""
+		impl, err = newOpenAIEmbedder(ctx, cfg)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("create %s embedder: %w", cfg.Provider, err)
+	}
+
+	return &Embedder{impl: impl, model: cfg.Model}, nil
 }
 
+func newOpenAIEmbedder(ctx context.Context, cfg config.EmbeddingConfig) (embedding.Embedder, error) {
+	apiKey := cfg.APIKey
+	if apiKey == "" || apiKey == "replace-me" {
+		return nil, errors.New("api_key is required for openai provider")
+	}
+
+	return openaiemb.NewEmbedder(ctx, &openaiemb.EmbeddingConfig{
+		APIKey:  apiKey,
+		BaseURL: cfg.Endpoint,
+		Model:   cfg.Model,
+	})
+}
+
+func newOllamaEmbedder(ctx context.Context, cfg config.EmbeddingConfig) (embedding.Embedder, error) {
+	return ollamaemb.NewEmbedder(ctx, &ollamaemb.EmbeddingConfig{
+		BaseURL: cfg.Endpoint,
+		Model:   cfg.Model,
+	})
+}
+
+// Embed converts a single text to its vector representation.
+// Automatically retries on rate-limit errors (429) with exponential backoff.
 func (e *Embedder) Embed(ctx context.Context, text string) ([]float64, error) {
-	if strings.TrimSpace(e.endpoint) == "" {
-		return nil, errors.New("embedding endpoint not configured")
-	}
+	// Pace requests to avoid burst triggering rate limits
+	e.pause()
 
-	reqBody := embeddingRequest{
-		Model: e.model,
-		Input: text,
-	}
+	var vecs [][]float64
+	var err error
 
-	raw, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshal embedding request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.endpoint+"/embeddings", bytes.NewReader(raw))
-	if err != nil {
-		return nil, fmt.Errorf("build embedding request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if e.apiKey != "" && e.apiKey != "replace-me" {
-		req.Header.Set("Authorization", "Bearer "+e.apiKey)
-	}
-
-	resp, err := e.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("call embedding api: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var decoded embeddingResponse
-	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		return nil, fmt.Errorf("decode embedding response: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		if decoded.Error != nil && decoded.Error.Message != "" {
-			return nil, fmt.Errorf("embedding api %d: %s", resp.StatusCode, decoded.Error.Message)
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := backoffDuration(attempt)
+			if deadline, ok := ctx.Deadline(); ok && time.Now().Add(delay).After(deadline) {
+				return nil, fmt.Errorf("embed retry would exceed context deadline: %w", err)
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
 		}
-		return nil, fmt.Errorf("embedding api returned %d", resp.StatusCode)
+
+		vecs, err = e.impl.EmbedStrings(ctx, []string{text})
+		if err == nil {
+			break
+		}
+
+		// Only retry on rate-limit errors
+		if !isRateLimit(err) {
+			return nil, fmt.Errorf("embed: %w", err)
+		}
 	}
 
-	if len(decoded.Data) == 0 || len(decoded.Data[0].Embedding) == 0 {
-		return nil, errors.New("embedding api returned empty result")
+	if err != nil {
+		return nil, fmt.Errorf("embed after %d retries: %w", maxRetries, err)
+	}
+	if len(vecs) == 0 || len(vecs[0]) == 0 {
+		return nil, errors.New("embedder returned empty result")
 	}
 
-	return decoded.Data[0].Embedding, nil
+	return vecs[0], nil
+}
+
+// pause inserts a small delay between successive requests to avoid burst rate-limiting.
+func (e *Embedder) pause() {
+	time.Sleep(requestPause)
+}
+
+func backoffDuration(attempt int) time.Duration {
+	d := baseDelay * (1 << (attempt - 1)) // 2s, 4s, 8s, 16s, 32s
+	if d > maxDelay {
+		d = maxDelay
+	}
+	return d
+}
+
+func isRateLimit(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "status code: 429") ||
+		strings.Contains(msg, "Too Many Requests") ||
+		strings.Contains(msg, "exceeded your current quota")
 }

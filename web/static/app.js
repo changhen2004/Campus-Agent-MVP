@@ -146,17 +146,7 @@
             continue;
           }
 
-          // Decode JSON string content from SSE
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.content !== undefined) {
-              contentEl.textContent += parsed.content;
-            }
-          } catch (_e) {
-            // Plain text token
-            contentEl.textContent += data;
-          }
-
+          contentEl.textContent += data;
           els.messageList.scrollTop = els.messageList.scrollHeight;
         }
       }
