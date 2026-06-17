@@ -28,10 +28,10 @@ func (s *Service) Upload(ctx context.Context, filename string, content []byte) e
 		return fmt.Errorf("parse uploaded file: %w", err)
 	}
 
-	// Add to local store for fallback
+	// 添加到本地存储作为降级方案
 	s.localStore.AddDocuments(doc)
 
-	// Index to Qdrant if available
+	// 索引到 Qdrant（如果可用）
 	if s.qdrantIdx != nil {
 		if err := s.qdrantIdx.IndexDocuments(ctx, []qdrant.Document{
 			{ID: doc.ID, Title: doc.Title, Content: doc.Content},
@@ -43,12 +43,12 @@ func (s *Service) Upload(ctx context.Context, filename string, content []byte) e
 	return nil
 }
 
-// LoadDocs loads markdown documents from the knowledge directory.
+// LoadDocs 从知识库目录加载 Markdown 文档。
 func (s *Service) LoadDocs(docs []knowledgetool.Document) {
 	s.localStore.AddDocuments(docs...)
 }
 
-// IndexDocs indexes documents into Qdrant.
+// IndexDocs 将文档索引到 Qdrant。
 func (s *Service) IndexDocs(ctx context.Context, docs []knowledgetool.Document) error {
 	if s.qdrantIdx == nil {
 		return nil

@@ -5,28 +5,28 @@ import (
 	"unicode/utf8"
 )
 
-// Chunk represents a single text fragment with position metadata.
+// Chunk 表示单个文本片段及其位置元数据。
 type Chunk struct {
 	Content string
-	Index   int // 0-based position within the document
+	Index   int // 在文档中的 0 基位置
 }
 
-// Defaults tuned for Chinese text with ~1500-2000 token embedding models.
+// 针对中文文本优化的默认值，适配约 1500–2000 token 的 embedding 模型。
 const (
-	defaultChunkSize    = 2000 // characters
-	defaultChunkOverlap = 200  // characters
+	defaultChunkSize    = 2000 // 字符数
+	defaultChunkOverlap = 200  // 字符数
 )
 
-// Split breaks text into overlapping chunks using recursive splitting:
+// Split 使用递归分割将文本拆分为有重叠的块：
 //
-//	paragraphs (double newline) → sentences (。！？) → fixed-size
+//	段落（双换行）→ 句子（。！？）→ 固定大小分割
 //
-// Each chunk is ≤ chunkSize characters, with overlap between adjacent chunks.
+// 每个块 ≤ chunkSize 个字符，相邻块之间有重叠。
 func Split(text string) []Chunk {
 	return SplitWithSize(text, defaultChunkSize, defaultChunkOverlap)
 }
 
-// SplitWithSize is like Split but accepts custom chunk size and overlap.
+// SplitWithSize 与 Split 类似，但接受自定义块大小和重叠量。
 func SplitWithSize(text string, chunkSize, overlap int) []Chunk {
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -36,14 +36,14 @@ func SplitWithSize(text string, chunkSize, overlap int) []Chunk {
 		return []Chunk{{Content: text, Index: 0}}
 	}
 
-	// Stage 1: split on double newline (paragraphs)
+	// 第一阶段：按双换行（段落）分割
 	paragraphs := splitParagraphs(text)
-	// Stage 2: split long paragraphs into sentences
+	// 第二阶段：将长段落拆分为句子
 	sentences := splitLongSegments(paragraphs, chunkSize, sentSplitter)
-	// Stage 3: split long sentences into fixed-size pieces
+	// 第三阶段：将长句子拆分为固定大小的片段
 	segments := splitLongSegments(sentences, chunkSize, fixedSplitter)
 
-	// Merge segments into overlapping chunks
+	// 将片段合并为有重叠的块
 	return mergeChunks(segments, chunkSize, overlap)
 }
 
@@ -62,7 +62,7 @@ func splitParagraphs(text string) []string {
 type splitFunc func(string, int) []string
 
 func sentSplitter(text string, _ int) []string {
-	// Split on Chinese/English sentence boundaries
+	// 按中英文句子边界分割
 	var parts []string
 	start := 0
 	runes := []rune(text)
@@ -70,7 +70,7 @@ func sentSplitter(text string, _ int) []string {
 	for i, r := range runes {
 		if r == '。' || r == '！' || r == '？' || r == '\n' || r == '.' || r == '!' || r == '?' {
 			if i+1 < len(runes) && runes[i+1] == ' ' {
-				// handle ". " etc.
+				// 处理 ". " 等格式
 			}
 			if i > start {
 				parts = append(parts, string(runes[start:i+1]))
@@ -144,11 +144,11 @@ func mergeChunks(segments []string, chunkSize, overlap int) []Chunk {
 
 		if currentLen+segLen > chunkSize && len(current) > 0 {
 			flush()
-			// Start new chunk with overlap: carry over last few segments
+			// 以重叠方式开始新块：保留上一个块末尾的若干片段
 			current = nil
 			currentLen = 0
 
-			// Build overlap prefix from the tail of the previous chunk
+			// 从前一个块的尾部提取重叠前缀
 			overlapContent := overlapFromLast(chunks, overlap)
 			if overlapContent != "" {
 				current = append(current, overlapContent)

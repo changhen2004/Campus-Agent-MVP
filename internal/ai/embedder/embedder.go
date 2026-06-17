@@ -18,23 +18,23 @@ const (
 	maxRetries    = 5
 	baseDelay     = 2 * time.Second
 	maxDelay      = 60 * time.Second
-	requestPause  = 200 * time.Millisecond // pace between requests to avoid burst
+	requestPause  = 200 * time.Millisecond // 请求间隔，避免突发流量触发限流
 )
 
-// Embedder wraps an Eino embedding.Embedder with retry and rate-limiting.
+// Embedder 封装 Eino embedding.Embedder，提供重试和限流功能。
 type Embedder struct {
 	impl      embedding.Embedder
 	model     string
-	pauseCh   <-chan time.Time // nil means no pacing needed (first request is instant)
+	pauseCh   <-chan time.Time // nil 表示无需限流（首次请求立即执行）
 }
 
-// New creates an Embedder based on the provider specified in config.
+// New 根据配置中指定的提供方创建 Embedder。
 //
-// Supported providers:
-//   - "openai" — OpenAI-compatible API (openai, dashscope, siliconflow, etc.)
-//   - "ollama" — Local Ollama server (no rate limits, no retry needed)
+// 支持的提供方：
+//   - "openai" — OpenAI 兼容 API（openai、dashscope、siliconflow 等）
+//   - "ollama" — 本地 Ollama 服务（无限流、无需重试）
 //
-// An empty provider defaults to "openai".
+// 提供方为空时默认为 "openai"。
 func New(cfg config.EmbeddingConfig) (*Embedder, error) {
 	if cfg.Model == "" {
 		return nil, errors.New("embedding model is not configured")
@@ -77,10 +77,10 @@ func newOllamaEmbedder(ctx context.Context, cfg config.EmbeddingConfig) (embeddi
 	})
 }
 
-// Embed converts a single text to its vector representation.
-// Automatically retries on rate-limit errors (429) with exponential backoff.
+// Embed 将单段文本转换为其向量表示。
+// 遇到限流错误（429）时自动按指数退避重试。
 func (e *Embedder) Embed(ctx context.Context, text string) ([]float64, error) {
-	// Pace requests to avoid burst triggering rate limits
+	// 节拍请求，避免突发流量触发限流
 	e.pause()
 
 	var vecs [][]float64
@@ -104,7 +104,7 @@ func (e *Embedder) Embed(ctx context.Context, text string) ([]float64, error) {
 			break
 		}
 
-		// Only retry on rate-limit errors
+		// 只对限流错误进行重试
 		if !isRateLimit(err) {
 			return nil, fmt.Errorf("embed: %w", err)
 		}
@@ -120,13 +120,13 @@ func (e *Embedder) Embed(ctx context.Context, text string) ([]float64, error) {
 	return vecs[0], nil
 }
 
-// pause inserts a small delay between successive requests to avoid burst rate-limiting.
+// pause 在连续请求之间插入短延迟，避免突发限流。
 func (e *Embedder) pause() {
 	time.Sleep(requestPause)
 }
 
 func backoffDuration(attempt int) time.Duration {
-	d := baseDelay * (1 << (attempt - 1)) // 2s, 4s, 8s, 16s, 32s
+	d := baseDelay * (1 << (attempt - 1)) // 2s、4s、8s、16s、32s
 	if d > maxDelay {
 		d = maxDelay
 	}

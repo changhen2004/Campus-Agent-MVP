@@ -42,7 +42,7 @@ func (r *Retriever) Search(ctx context.Context, query string, limit uint64) ([]S
 	results, err := r.client.points.Search(ctx, &pb.SearchPoints{
 		CollectionName: r.client.collection,
 		Vector:         vector32,
-		Limit:          limit * 3, // oversample to account for chunk dedup
+		Limit:          limit * 3, // 过采样以应对块去重
 		WithPayload:    pb.NewWithPayloadEnable(true),
 	})
 	if err != nil {
@@ -70,7 +70,7 @@ func (r *Retriever) Search(ctx context.Context, query string, limit uint64) ([]S
 			sr.ID = pid.GetUuid()
 		}
 
-		// Backward compat: if doc_id is empty, use ID as doc_id
+		// 向后兼容：如果 doc_id 为空，使用 ID 作为 doc_id
 		if sr.DocID == "" {
 			sr.DocID = sr.ID
 		}
@@ -78,21 +78,20 @@ func (r *Retriever) Search(ctx context.Context, query string, limit uint64) ([]S
 		searchResults = append(searchResults, sr)
 	}
 
-	// Merge chunks from the same document, keep top-scoring chunk per doc
+	// 合并同一文档的块，保留每个文档得分最高的块
 	merged := mergeByDoc(searchResults, limit)
 	return merged, nil
 }
 
-// mergeByDoc groups results by DocID, keeps the best-scoring chunk from each
-// document, and concatenates adjacent chunks for context.
+// mergeByDoc 按 DocID 分组结果，保留每个文档得分最高的块，并拼接相邻块以提供上下文。
 func mergeByDoc(results []SearchResult, limit uint64) []SearchResult {
 	if len(results) == 0 {
 		return nil
 	}
 
-	// Group by doc_id
+	// 按 doc_id 分组
 	groups := make(map[string][]SearchResult)
-	order := make([]string, 0, len(groups)) // preserve first-seen order
+	order := make([]string, 0, len(groups)) // 保留首次出现的顺序
 
 	for _, r := range results {
 		if _, exists := groups[r.DocID]; !exists {
@@ -101,7 +100,7 @@ func mergeByDoc(results []SearchResult, limit uint64) []SearchResult {
 		groups[r.DocID] = append(groups[r.DocID], r)
 	}
 
-	// For each doc, sort chunks by index and merge content
+	// 对每个文档，按索引排序块并合并内容
 	merged := make([]SearchResult, 0, len(groups))
 	for _, docID := range order {
 		chunks := groups[docID]
@@ -109,11 +108,11 @@ func mergeByDoc(results []SearchResult, limit uint64) []SearchResult {
 			return chunks[i].ChunkIndex < chunks[j].ChunkIndex
 		})
 
-		// Best score from this doc
+		// 该文档的最高得分
 		bestScore := chunks[0].Score
 		bestTitle := chunks[0].Title
 
-		// Concatenate chunk content (dedup overlapping tails)
+		// 拼接块内容（去除重叠尾部）
 		content := mergeChunkContent(chunks)
 
 		merged = append(merged, SearchResult{
@@ -131,7 +130,7 @@ func mergeByDoc(results []SearchResult, limit uint64) []SearchResult {
 	return merged
 }
 
-// mergeChunkContent concatenates chunks, removing overlap tails.
+// mergeChunkContent 拼接块内容，去除重叠尾部。
 func mergeChunkContent(chunks []SearchResult) string {
 	if len(chunks) == 0 {
 		return ""
@@ -145,7 +144,7 @@ func mergeChunkContent(chunks []SearchResult) string {
 		prev := []rune(chunks[i-1].Content)
 		curr := []rune(chunks[i].Content)
 
-		// Find overlap: suffix of prev that matches prefix of curr
+		// 查找重叠：prev 的后缀匹配 curr 的前缀
 		overlapLen := 0
 		maxOverlap := len(prev)
 		if len(curr) < maxOverlap {

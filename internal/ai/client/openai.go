@@ -11,30 +11,29 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-// ChatMessage is a type alias for Eino's schema.Message.
-// Code that previously used client.ChatMessage now uses *schema.Message transparently.
+// ChatMessage 是 Eino schema.Message 的类型别名。
+// 原先使用 client.ChatMessage 的代码现在透明地使用 *schema.Message。
 type ChatMessage = schema.Message
 
-// Message constructors — thin aliases so existing call sites compile with minimal diff.
+// 消息构造函数 — 薄别名，让现有调用点只需最小改动即可编译通过。
 var (
 	SystemMessage    = schema.SystemMessage
 	UserMessage      = schema.UserMessage
 	AssistantMessage = schema.AssistantMessage
 )
 
-// StreamCallback is called for each content chunk during streaming.
+// StreamCallback 在流式输出期间每个内容块到达时被调用。
 type StreamCallback func(token string) error
 
-// Client wraps an Eino ChatModel implementation (OpenAI-compatible) to provide
-// a simplified interface matching the original hand-rolled client.
+// Client 封装 Eino ChatModel 实现（OpenAI 兼容），提供与原手写客户端匹配的简化接口。
 type Client struct {
 	model *openaimdl.ChatModel
 	cfg   config.LLMConfig
 }
 
-// New creates a ChatModel client for the given LLM provider.
+// New 为指定的 LLM 提供方创建一个 ChatModel 客户端。
 //
-// DeepSeek is supported by setting BaseURL to "https://api.deepseek.com/v1".
+// 通过设置 BaseURL 为 "https://api.deepseek.com/v1" 可支持 DeepSeek。
 func New(cfg config.LLMConfig) (*Client, error) {
 	if cfg.Model == "" {
 		return nil, fmt.Errorf("llm model is not configured")
@@ -55,7 +54,7 @@ func New(cfg config.LLMConfig) (*Client, error) {
 	return &Client{model: model, cfg: cfg}, nil
 }
 
-// Complete sends messages and returns the full assistant response.
+// Complete 发送消息并返回完整的助手回复。
 func (c *Client) Complete(ctx context.Context, messages []*ChatMessage) (string, error) {
 	msg, err := c.model.Generate(ctx, messages)
 	if err != nil {
@@ -67,8 +66,8 @@ func (c *Client) Complete(ctx context.Context, messages []*ChatMessage) (string,
 	return msg.Content, nil
 }
 
-// CompleteStream streams tokens via callback. The callback receives each content
-// chunk as it arrives; return a non-nil error to abort streaming.
+// CompleteStream 通过回调流式输出 token。回调在每个内容块到达时被调用；
+// 返回非 nil 错误可中止流式输出。
 func (c *Client) CompleteStream(ctx context.Context, messages []*ChatMessage, callback StreamCallback) error {
 	stream, err := c.model.Stream(ctx, messages)
 	if err != nil {

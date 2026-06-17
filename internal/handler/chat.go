@@ -71,12 +71,12 @@ func (h *ChatHandler) ChatStream(c *gin.Context) {
 		}
 		token, ok := <-ch
 		if !ok {
-			// Channel closed — stream finished normally
+			// Channel 关闭 — 流式输出正常结束
 			fmt.Fprintf(c.Writer, "data: [DONE]\n\n")
 			c.Writer.Flush()
 			return
 		}
-		// Write raw SSE format: "data: <content>\n\n"
+		// 写入原始 SSE 格式: "data: <content>\n\n"
 		fmt.Fprintf(c.Writer, "data: %s\n\n", token)
 		c.Writer.Flush()
 	}

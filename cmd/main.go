@@ -33,7 +33,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// Load local knowledge docs as fallback
+	// 加载本地知识库文档作为降级方案
 	knowledgeDocs, err := localknowledge.LoadMarkdownDir("docs/knowledge")
 	if err != nil {
 		log.Printf("[main] load knowledge docs: %v", err)
@@ -41,17 +41,17 @@ func main() {
 	}
 	log.Printf("[main] loaded %d knowledge documents from docs/knowledge", len(knowledgeDocs))
 
-	// Initialize local knowledge store (always available as fallback)
+	// 初始化本地知识库存储（始终可用作降级方案）
 	localStore := knowledgetool.NewLocalTool(knowledgeDocs)
 
-	// Initialize LLM client (powered by Eino ChatModel)
+	// 初始化 LLM 客户端（基于 Eino ChatModel）
 	llmClient, err := client.New(cfg.LLM)
 	if err != nil {
 		log.Fatalf("[main] llm client init failed: %v", err)
 	}
 
-	// Attempt to initialize Embedding + Qdrant
-	// Embedder now supports multiple providers (openai, ollama) via Eino framework.
+	// 尝试初始化 Embedding + Qdrant
+	// Embedder 现在通过 Eino 框架支持多种提供方（openai、ollama）。
 	var qdrantClient *qdrant.Client
 	var qdrantIdx *qdrant.Indexer
 	var qdrantRet *qdrant.Retriever
@@ -72,7 +72,7 @@ func main() {
 			qdrantIdx = qdrant.NewIndexer(qdrantClient, embedderService)
 			qdrantRet = qdrant.NewRetriever(qdrantClient, embedderService)
 
-			// Index existing documents into Qdrant
+			// 将现有文档索引到 Qdrant
 			if len(knowledgeDocs) > 0 {
 				docs := make([]qdrant.Document, 0, len(knowledgeDocs))
 				for _, d := range knowledgeDocs {
@@ -85,22 +85,22 @@ func main() {
 		}
 	}
 
-	// Initialize retriever (Qdrant + local fallback)
+	// 初始化检索器（Qdrant + 本地降级）
 	ret := retriever.New(qdrantRet, localStore, cfg.RAG)
 
-	// Initialize services
+	// 初始化服务
 	chatService, err := chat.NewService(llmClient, ret, cfg.RAG)
 	if err != nil {
 		log.Fatalf("[main] chat service init failed: %v", err)
 	}
 	knowledgeService := knowledge.NewService(localStore, qdrantIdx)
 
-	// Initialize handlers
+	// 初始化 handler
 	chatHandler := handler.NewChatHandler(chatService)
 	knowledgeHandler := handler.NewKnowledgeHandler(knowledgeService)
 	staticFS := http.FS(os.DirFS("web/static"))
 
-	// Setup router
+	// 设置路由
 	r := router.New(chatHandler, knowledgeHandler, staticFS)
 
 	addr := cfg.Server.Addr()

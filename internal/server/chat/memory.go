@@ -8,14 +8,14 @@ import (
 
 const DefaultMaxWindowSize = 10
 
-// SessionMemory holds the sliding-window message history for a session.
+// SessionMemory 保存会话的滑动窗口消息历史。
 type SessionMemory struct {
 	mu            sync.Mutex
 	Messages      []*schema.Message
 	MaxWindowSize int
 }
 
-// sessionStore holds all active sessions.
+// sessionStore 保存所有活跃会话。
 var sessionStore sync.Map
 
 func loadOrCreateSession(id string) *SessionMemory {

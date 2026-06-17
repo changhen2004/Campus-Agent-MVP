@@ -20,16 +20,15 @@ func NewIndexer(client *Client, embedder *embedder.Embedder) *Indexer {
 	return &Indexer{client: client, embedder: embedder}
 }
 
-// Document represents a knowledge document to be indexed.
+// Document 表示一条待索引的知识文档。
 type Document struct {
 	ID      string
 	Title   string
 	Content string
 }
 
-// IndexDocuments splits each document into chunks, embeds them, and upserts into Qdrant.
-// Long documents that exceed the embedding API's request size limit are automatically
-// split with overlap to preserve cross-chunk context.
+// IndexDocuments 将每个文档拆分为块，嵌入向量后 upsert 到 Qdrant。
+// 超过 embedding API 请求大小限制的长文档会自动切割并保留重叠以维持跨块上下文。
 func (idx *Indexer) IndexDocuments(ctx context.Context, docs []Document) error {
 	if len(docs) == 0 {
 		return nil
@@ -74,7 +73,7 @@ func (idx *Indexer) IndexDocuments(ctx context.Context, docs []Document) error {
 				},
 			})
 
-			// Batch upsert every 64 points
+			// 每 64 个点批量 upsert
 			if len(points) >= 64 {
 				if err := idx.upsertBatch(ctx, points); err != nil {
 					return err
@@ -90,10 +89,9 @@ func (idx *Indexer) IndexDocuments(ctx context.Context, docs []Document) error {
 	return nil
 }
 
-// toUUID converts an arbitrary string to a valid UUID v3/v5 format using MD5 hash.
-// Qdrant requires UUIDs for point IDs, but our document IDs are human-readable strings
-// (e.g. Chinese filenames). This hash produces a deterministic UUID so re-indexing
-// the same document always produces the same Qdrant point ID.
+// toUUID 使用 MD5 哈希将任意字符串转换为合法的 UUID v3/v5 格式。
+// Qdrant 要求 point ID 为 UUID，但我们的文档 ID 是可读字符串（如中文文件名）。
+// 此哈希产生确定性 UUID，确保同一文档重新索引时始终生成相同的 Qdrant point ID。
 func toUUID(s string) string {
 	hash := md5.Sum([]byte(s))
 	return fmt.Sprintf("%x-%x-%x-%x-%x",

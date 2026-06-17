@@ -48,15 +48,15 @@ func NewClient(ctx context.Context, cfg config.QdrantConfig, dimension int) (*Cl
 }
 
 func (c *Client) ensureCollection(ctx context.Context) error {
-	// Check if collection exists
+	// 检查 collection 是否存在
 	_, err := c.collections.Get(ctx, &pb.GetCollectionInfoRequest{
 		CollectionName: c.collection,
 	})
 	if err == nil {
-		return nil // exists
+		return nil // 已存在
 	}
 
-	// Create collection
+	// 创建 collection
 	_, err = c.collections.Create(ctx, &pb.CreateCollection{
 		CollectionName: c.collection,
 		VectorsConfig: pb.NewVectorsConfig(&pb.VectorParams{
@@ -65,7 +65,7 @@ func (c *Client) ensureCollection(ctx context.Context) error {
 		}),
 	})
 	if err != nil {
-		// Collection might have been created by another process
+		// Collection 可能已被其他进程创建
 		log.Printf("[qdrant] create collection: %v (may already exist)", err)
 	}
 
