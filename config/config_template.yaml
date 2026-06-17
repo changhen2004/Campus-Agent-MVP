@@ -5,12 +5,12 @@ server:
 llm:
   endpoint: "https://api.deepseek.com/"
   api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
-  model: "deepseek-chat"
+  model: "deepseek-v4-pro"
 
 embedding:
   provider: "openai"
-  endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  api_key: "sk-09879625324744bfb78cd51dea389a89"
+  endpoint: "https://api.deepseek.com"
+  api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
   model: "text-embedding-v2"
   dimension: 1536
 

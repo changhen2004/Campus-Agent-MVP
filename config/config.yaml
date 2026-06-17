@@ -5,14 +5,14 @@ server:
 llm:
   endpoint: "https://api.deepseek.com/"
   api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
-  model: "deepseek-chat"
+  model: "deepseek-v4-pro"
 
 embedding:
-  provider: "openai"
-  endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  api_key: "sk-09879625324744bfb78cd51dea389a89"
-  model: "text-embedding-v2"
-  dimension: 1536                                  # v2: 1536; v3 默认 1024
+  provider: "ollama"
+  endpoint: "http://127.0.0.1:11434"
+  api_key: ""
+  model: "nomic-embed-text"
+  dimension: 768
 
 qdrant:
   host: "127.0.0.1"
