@@ -4,7 +4,7 @@ server:
 
 llm:
   endpoint: "https://api.deepseek.com/"
-  api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
+  api_key: "sk-743c45b258334db1b032c80716649b2b"
   model: "deepseek-v4-pro"
 
 embedding:

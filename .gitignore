@@ -10,3 +10,4 @@ tmp/
 coverage.out
 vendor/
 local/
+config/config.yaml

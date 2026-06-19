@@ -4,13 +4,13 @@ server:
 
 llm:
   endpoint: "https://api.deepseek.com/"
-  api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
-  model: "deepseek-v4-pro"
+  api_key: "replace_with_your_api_key"
+  model: "deepseek-chat"
 
 embedding:
   provider: "openai"
   endpoint: "https://api.deepseek.com"
-  api_key: "sk-76b4a37a1b4e46db8d0424adf4017bbd"
+  api_key: "replace_with_your_api_key"
   model: "text-embedding-v2"
   dimension: 1536
 
